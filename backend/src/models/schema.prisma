@@ -1,0 +1,177 @@
+generator client {
+    provider = "prisma-client"
+}
+
+datasource db {
+    provider = "postgresql"
+}
+
+model User {
+    id        String   @id @default(uuid())
+    username  String
+    password  String
+    status    Status   @default(ONLINE)
+    createdAt DateTime @default(now())
+    profile   Profile?
+
+    // Group Relations
+    ownedGroups  Groups[]       @relation("GroupOwner")
+    groupsJoined GroupMembers[]
+
+    // Content Relations
+    posts     Posts[]
+    comments  Comments[]
+    reactions Reactions[]
+
+    // Private Messaging Relations
+    sentMessages     PrivateChats[]  @relation("SentMessages")
+    receivedMessages PrivateChats[]  @relation("ReceivedMessages")
+    notifications    Notifications[]
+}
+
+model Groups {
+    id        String   @id @default(uuid())
+    name      String   @unique
+    profile   Profile?
+    createdAt DateTime @default(now())
+
+    ownerId String
+    owner   User   @relation("GroupOwner", fields: [ownerId], references: [id])
+
+    members GroupMembers[]
+    posts   Posts[]
+}
+
+model Profile {
+    id        String   @id @default(uuid())
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    // Basic Info
+    bio       String?
+    avatarUrl String?
+    location  String?
+    website   String?
+
+    //user relations
+    userId  String @unique
+    user    User   @relation(fields: [userId], references: [id])
+    //group relations
+    groupId String @unique
+    group   Groups @relation(fields: [groupId], references: [id])
+}
+
+model GroupMembers {
+    id      String   @id @default(uuid())
+    created DateTime @default(now())
+
+    groupId String
+    group   Groups @relation(fields: [groupId], references: [id])
+
+    userId String
+    user   User   @relation(fields: [userId], references: [id])
+
+    @@unique([userId, groupId]) // Prevents a user joining the same group twice
+}
+
+model Posts {
+    id      String   @id @default(uuid())
+    text    String? // Optional in case of image-only posts
+    imgUrl  String? // Optional in case of text-only posts
+    created DateTime @default(now())
+
+    userId String
+    author User   @relation(fields: [userId], references: [id])
+
+    groupId String
+    group   Groups @relation(fields: [groupId], references: [id])
+
+    comments      Comments[]
+    reactions     Reactions[]
+    notifications Notifications[]
+}
+
+model Comments {
+    id      String   @id @default(uuid())
+    text    String
+    created DateTime @default(now())
+
+    postId String
+    post   Posts  @relation(fields: [postId], references: [id])
+
+    userId String
+    author User   @relation(fields: [userId], references: [id])
+
+    // Threading logic: Comments can have replies
+    parentId      String?
+    parent        Comments?       @relation("CommentReplies", fields: [parentId], references: [id])
+    replies       Comments[]      @relation("CommentReplies")
+    notifications Notifications[]
+}
+
+model PrivateChats {
+    id      String   @id @default(uuid())
+    text    String? // Optional in case of image-only posts
+    imgUrl  String? // Optional in case of text-only posts
+    read    Boolean  @default(false)
+    created DateTime @default(now())
+
+    senderId String
+    sender   User   @relation("SentMessages", fields: [senderId], references: [id])
+
+    receiverId    String
+    receiver      User            @relation("ReceivedMessages", fields: [receiverId], references: [id])
+    notifications Notifications[]
+}
+
+model Reactions {
+    id      String   @id @default(uuid())
+    emoji   String
+    created DateTime @default(now())
+
+    postId String
+    post   Posts  @relation(fields: [postId], references: [id])
+
+    userId        String
+    user          User            @relation(fields: [userId], references: [id])
+    notifications Notifications[]
+
+    @@unique([userId, postId]) // one reaction per user per post
+}
+
+model Notifications {
+    id        String           @id @default(uuid())
+    type      NotificationType @default(MESSAGE)
+    message   String? // optional human-readable text
+    createdAt DateTime         @default(now())
+    read      Boolean          @default(false)
+
+    // Who receives the notification
+    userId String
+    user   User   @relation(fields: [userId], references: [id])
+
+    // Activity references (always tied back to a Post if group-related)
+    postId String?
+    post   Posts?  @relation(fields: [postId], references: [id])
+
+    commentId String?
+    comment   Comments? @relation(fields: [commentId], references: [id])
+
+    reactionId String?
+    reaction   Reactions? @relation(fields: [reactionId], references: [id])
+
+    chatId String?
+    chat   PrivateChats? @relation(fields: [chatId], references: [id])
+}
+
+enum Status {
+    ONLINE
+    OFFLINE
+}
+
+enum NotificationType {
+    COMMENT
+    REACTION
+    MESSAGE
+    GROUP_INVITE
+}
