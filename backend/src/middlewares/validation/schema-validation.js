@@ -1,0 +1,114 @@
+import { z } from "zod";
+
+// Robust UUID validation regex (supports UUID v1-v5, case insensitive)
+const uuidRegex =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+// Robust URL validation regex (supports http, https, and common URL formats)
+const urlRegex = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([\/\w .-]*)*\/?$/i;
+
+const UUID_SCHEMA = z.string().regex(uuidRegex, "Invalid UUID format");
+const URL_SCHEMA = z.string().regex(urlRegex, "Invalid URL format").optional();
+
+// User schema
+const UserSchema = z.object({
+  //id: UUID_SCHEMA,
+  username: z.string().min(3).max(30),
+  email: z.email("Invalid email format"),
+  status: z.enum(["ONLINE", "OFFLINE"]).default("ONLINE").optional(),
+  // createdAt: z.date(),
+});
+
+// Profile schema
+const ProfileSchema = z.object({
+  id: UUID_SCHEMA,
+  bio: z.string().optional(),
+  avatarUrl: URL_SCHEMA,
+  location: z.string().optional(),
+  website: URL_SCHEMA,
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+  userId: UUID_SCHEMA,
+});
+
+// Group schema
+const GroupSchema = z.object({
+  id: UUID_SCHEMA,
+  name: z.string().min(3),
+  createdAt: z.coerce.date(),
+  ownerId: UUID_SCHEMA,
+});
+
+// Post schema
+const PostSchema = z.object({
+  id: UUID_SCHEMA,
+  text: z.string().optional(),
+  imgUrl: URL_SCHEMA,
+  created: z.coerce.date(),
+  userId: UUID_SCHEMA,
+  groupId: UUID_SCHEMA,
+});
+
+// Comment schema
+const CommentSchema = z.object({
+  id: UUID_SCHEMA,
+  text: z.string().min(1),
+  created: z.coerce.date(),
+  postId: UUID_SCHEMA,
+  userId: UUID_SCHEMA,
+  parentId: UUID_SCHEMA.optional(),
+});
+
+// Reaction schema
+const ReactionSchema = z.object({
+  id: UUID_SCHEMA,
+  emoji: z.string().min(1),
+  created: z.coerce.date(),
+  postId: UUID_SCHEMA,
+  userId: UUID_SCHEMA,
+});
+
+// PrivateChat schema
+const PrivateChatSchema = z.object({
+  id: UUID_SCHEMA,
+  text: z.string().optional(),
+  imgUrl: URL_SCHEMA,
+  read: z.boolean().default(false),
+  created: z.coerce.date(),
+  senderId: UUID_SCHEMA,
+  receiverId: UUID_SCHEMA,
+});
+
+// Notification schema
+const NotificationSchema = z.object({
+  id: UUID_SCHEMA,
+  type: z.enum(["COMMENT", "REACTION", "MESSAGE", "GROUP_INVITE"]),
+  message: z.string().optional(),
+  createdAt: z.coerce.date(),
+  read: z.boolean().default(false),
+  userId: UUID_SCHEMA,
+  postId: UUID_SCHEMA.optional(),
+  commentId: UUID_SCHEMA.optional(),
+  reactionId: UUID_SCHEMA.optional(),
+  chatId: UUID_SCHEMA.optional(),
+});
+// RefreshToken schema
+const RefreshTokenSchema = z.object({
+  id: UUID_SCHEMA,
+  token: z.string().min(10), // JWTs are long strings, enforce minimum length
+  userId: UUID_SCHEMA,
+  createdAt: z.date(),
+  expiresAt: z.date(),
+});
+
+export {
+  UserSchema,
+  ProfileSchema,
+  GroupSchema,
+  PostSchema,
+  CommentSchema,
+  ReactionSchema,
+  PrivateChatSchema,
+  NotificationSchema,
+  RefreshTokenSchema,
+};
