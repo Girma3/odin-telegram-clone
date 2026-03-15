@@ -1,5 +1,5 @@
 generator client {
-    provider = "prisma-client"
+    provider = "prisma-client-js"
 }
 
 datasource db {
@@ -9,7 +9,7 @@ datasource db {
 model User {
     id        String   @id @default(uuid())
     username  String
-    password  String
+    email     String   @unique
     status    Status   @default(ONLINE)
     createdAt DateTime @default(now())
     profile   Profile?
@@ -27,6 +27,7 @@ model User {
     sentMessages     PrivateChats[]  @relation("SentMessages")
     receivedMessages PrivateChats[]  @relation("ReceivedMessages")
     notifications    Notifications[]
+    refreshTokens    RefreshToken[]
 }
 
 model Groups {
@@ -162,6 +163,17 @@ model Notifications {
 
     chatId String?
     chat   PrivateChats? @relation(fields: [chatId], references: [id])
+}
+
+model RefreshToken {
+    id        String   @id @default(uuid())
+    token     String   @unique
+    userId    String
+    user      User     @relation(fields: [userId], references: [id])
+    createdAt DateTime @default(now())
+    expiresAt DateTime
+
+    @@index([userId]) // speeds up queries by user
 }
 
 enum Status {
