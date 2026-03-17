@@ -1,9 +1,10 @@
 import prismaGlobal from "./pool.js";
-
-async function saveRefreshToken(userId, refreshToken, expireAt) {
+async function saveRefreshToken(userId, refreshToken, expiresAt) {
   try {
-    const data = await prismaGlobal.refreshToken.create({
-      data: { userId, token: refreshToken, expiresAt: expireAt },
+    const data = await prismaGlobal.refreshToken.upsert({
+      where: { userId }, // enforce one token per user
+      create: { userId, token: refreshToken, expiresAt },
+      update: { token: refreshToken, expiresAt },
     });
     return data;
   } catch (error) {
@@ -12,12 +13,10 @@ async function saveRefreshToken(userId, refreshToken, expireAt) {
   }
 }
 
-async function getToken(token) {
+async function getTokenByUserId(userId) {
   try {
     const data = await prismaGlobal.refreshToken.findUnique({
-      where: {
-        token: token,
-      },
+      where: { userId },
     });
     return data;
   } catch (error) {
@@ -25,12 +24,11 @@ async function getToken(token) {
     throw new Error(`Failed to get token: ${error.message}`);
   }
 }
-async function deleteToken(token) {
+
+async function deleteTokenByUserId(userId) {
   try {
     const data = await prismaGlobal.refreshToken.delete({
-      where: {
-        token: token,
-      },
+      where: { userId },
     });
     return data;
   } catch (error) {
@@ -39,4 +37,4 @@ async function deleteToken(token) {
   }
 }
 
-export { saveRefreshToken, getToken, deleteToken };
+export { saveRefreshToken, getTokenByUserId, deleteTokenByUserId };
