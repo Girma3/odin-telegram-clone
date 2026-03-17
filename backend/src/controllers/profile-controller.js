@@ -6,7 +6,6 @@ import {
   getProfileById,
 } from "../models/user-query/profile-query.js";
 import { ProfileSchema } from "../middlewares/validation/schema-validation.js";
-import { getUserById } from "../models/user-query/user-queries.js";
 
 async function createProfileController(req, res) {
   const result = ProfileSchema.pick({
