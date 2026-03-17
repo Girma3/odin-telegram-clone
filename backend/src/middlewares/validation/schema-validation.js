@@ -31,10 +31,8 @@ const ProfileSchema = z.object({
 
 // Group schema
 const GroupSchema = z.object({
-  id: UUID_SCHEMA,
   name: z.string().min(3),
-  createdAt: z.coerce.date(),
-  ownerId: UUID_SCHEMA,
+  profile: ProfileSchema.optional(),
 });
 
 // Post schema
