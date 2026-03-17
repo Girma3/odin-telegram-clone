@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import passport from "./config/passport.js";
 import authRouter from "./routes/auth-route.js";
+import profileRouter from "./routes/profile-route.js";
 
 const app = express();
 
@@ -19,6 +20,7 @@ app.use(cors({ origin: "*", methods: ["GET", "POST", "PUT", "DELETE"] }));
 app.use(passport.initialize());
 
 app.use("/auth", authRouter);
+app.use("/profiles", profileRouter);
 app.use((err, req, res, next) => {
   console.error(err.stack);
   return res.status(500).json({ message: "Something went wrong in server!" });

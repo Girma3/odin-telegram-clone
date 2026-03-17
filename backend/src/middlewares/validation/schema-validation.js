@@ -21,14 +21,12 @@ const UserSchema = z.object({
 
 // Profile schema
 const ProfileSchema = z.object({
-  id: UUID_SCHEMA,
-  bio: z.string().optional(),
-  avatarUrl: URL_SCHEMA,
-  location: z.string().optional(),
-  website: URL_SCHEMA,
-  createdAt: z.coerce.date(),
-  updatedAt: z.coerce.date(),
+  bio: z.string().max(300).optional(), //  max length
+  avatarUrl: URL_SCHEMA.optional(),
+  location: z.string().max(100).optional(),
+  website: URL_SCHEMA.optional(),
   userId: UUID_SCHEMA,
+  groupId: UUID_SCHEMA.optional(),
 });
 
 // Group schema

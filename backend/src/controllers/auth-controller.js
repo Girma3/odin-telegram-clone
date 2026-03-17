@@ -2,26 +2,25 @@ import dotenv from "dotenv";
 dotenv.config();
 import passport from "passport";
 import jwt from "jsonwebtoken";
-
-import {
-  deleteToken,
-  getToken,
-  saveRefreshToken,
-} from "../models/token.queries.js";
-
+import { UserSchema } from "../middlewares/validation/schema-validation.js";
+import generateUserTokens from "../middlewares/generate-token.js";
 import {
   createUser,
   getUserByUserByEmail,
 } from "../models/user-query/user-queries.js";
-import { UserSchema } from "../middlewares/validation/schema-validation.js";
-import generateTokens from "../middlewares/generate-token.js";
-import generateUserTokens from "../middlewares/generate-token.js";
+
+import {
+  saveRefreshToken,
+  getTokenByUserId,
+  deleteTokenByUserId,
+} from "../models/token-queries.js";
 
 async function registerNewUser(req, res, next) {
   const result = UserSchema.pick({
     username: true,
     email: true,
   }).safeParse(req.body);
+
   if (!result.success) {
     return res.status(400).json({ message: result.error.message });
   }
@@ -36,6 +35,7 @@ async function registerNewUser(req, res, next) {
     }
 
     const data = await createUser(username, email);
+
     return res.status(201).json(data);
   } catch (error) {
     console.error(error);
@@ -45,26 +45,42 @@ async function registerNewUser(req, res, next) {
   }
 }
 
-async function loginUser(req, res, next) {
-  const result = UserSchema.pick({ email: true }).safeParse(req.body);
-
-  if (!result.success) {
-    return res.status(400).json({ message: result.error.message });
+async function loginUser(req, res) {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ message: "Email required" });
   }
 
   try {
-    const { email } = result.data;
-
-    // Find user by username
     const user = await getUserByUserByEmail(email);
+
     if (!user) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // Generate tokens
-    const { accessToken, refreshToken, expireAt } = generateUserTokens(user);
+    const storedToken = await getTokenByUserId(user.id);
 
-    // Save refresh token in DB
+    if (storedToken && storedToken.expiresAt > new Date()) {
+      // Always issue a fresh access token
+      const accessToken = jwt.sign(
+        { id: user.id, email: user.email },
+        process.env.JWT_SECRET,
+        { expiresIn: "1d" },
+      );
+
+      return res.json({
+        accessToken,
+        refreshToken: storedToken.token,
+        user,
+      });
+    }
+
+    if (storedToken && storedToken.expiresAt < new Date()) {
+      await deleteTokenByUserId(user.id);
+    }
+
+    // Generate new tokens
+    const { accessToken, refreshToken, expireAt } = generateUserTokens(user);
     await saveRefreshToken(user.id, refreshToken, expireAt);
 
     return res.json({ accessToken, refreshToken, user });
@@ -84,10 +100,10 @@ function isUserAuthenticated(req, res, next) {
       return res.status(401).json({ message: "Unauthorized" });
     }
     req.user = user;
-    return next();
+
+    next();
   })(req, res, next); // important: invoke the returned function
 }
-
 async function refreshAccessToken(req, res) {
   const { token } = req.body;
   if (!token) {
@@ -95,14 +111,18 @@ async function refreshAccessToken(req, res) {
   }
 
   try {
-    // Verify JWT signature
+    // Verify JWT signature & expiry
     const payload = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Check if token exists in DB and is not expired
-    const storedToken = await getToken(token);
+    // Check if token exists in DB
+    const storedToken = await prismaGlobal.refreshToken.findUnique({
+      where: { token },
+    });
 
     if (!storedToken || storedToken.expiresAt < new Date()) {
-      await deleteToken(token);
+      if (storedToken) {
+        await prismaGlobal.refreshToken.delete({ where: { token } });
+      }
       return res
         .status(401)
         .json({ message: "Invalid or expired refresh token" });
@@ -115,11 +135,18 @@ async function refreshAccessToken(req, res) {
       { expiresIn: "1d" },
     );
 
-    // Optionally rotate refresh token
+    // Rotate refresh token
     const newRefreshToken = jwt.sign(
       { id: payload.id, email: payload.email },
       process.env.JWT_SECRET,
       { expiresIn: "20d" },
+    );
+
+    // Save rotated refresh token
+    await saveRefreshToken(
+      payload.id,
+      newRefreshToken,
+      new Date(Date.now() + 20 * 24 * 60 * 60 * 1000),
     );
 
     return res.json({
@@ -143,7 +170,7 @@ async function logoutUser(req, res) {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
 
     // Check if token exists in DB and is not expired
-    const storedToken = await getToken(token);
+    const storedToken = await getTokenByUserId(payload.id);
 
     if (!storedToken || storedToken.expiresAt < new Date()) {
       return res
@@ -152,7 +179,7 @@ async function logoutUser(req, res) {
     }
 
     // Delete token from DB
-    await deleteToken(token);
+    await deleteTokenByUserId(payload.id);
     return res.status(200).json({ message: "Logout successful" });
   } catch (error) {
     console.error(error);
