@@ -1,6 +1,5 @@
 import request from "supertest";
 import app from "../src/app.js";
-import e from "express";
 
 const userName = "testUser";
 const userEmail = "test@example.com";
