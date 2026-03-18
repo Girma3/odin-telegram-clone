@@ -1,6 +1,6 @@
 import request from "supertest";
-import app from "../src/app.js";
-import prismaGlobal from "../src/models/pool.js";
+import app from "../../src/app.js";
+import prismaGlobal from "../../src/models/pool.js";
 
 const userName = `testUser_${Date.now()}`;
 const userEmail = `test_${Date.now()}@example.com`;
