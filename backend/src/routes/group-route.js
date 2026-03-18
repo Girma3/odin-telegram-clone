@@ -12,7 +12,7 @@ import {
   getPosts,
   joinGroup,
   leaveGroup,
-} from "../controllers/group-controller.js";
+} from "../controllers/group-controller/group-controller.js";
 import { isUserAuthenticated } from "../controllers/auth-controller.js";
 
 const groupRouter = Router({ mergeParams: true });
