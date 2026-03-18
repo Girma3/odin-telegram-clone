@@ -37,41 +37,33 @@ const GroupSchema = z.object({
 
 // Post schema
 const PostSchema = z.object({
-  id: UUID_SCHEMA,
+  id: UUID_SCHEMA.optional(),
   text: z.string().optional(),
-  imgUrl: URL_SCHEMA,
-  created: z.coerce.date(),
-  userId: UUID_SCHEMA,
-  groupId: UUID_SCHEMA,
+  imgUrl: URL_SCHEMA.optional(),
+  userId: UUID_SCHEMA.optional(),
+  groupId: UUID_SCHEMA.optional(),
 });
 
 // Comment schema
 const CommentSchema = z.object({
-  id: UUID_SCHEMA,
   text: z.string().min(1),
-  created: z.coerce.date(),
-  postId: UUID_SCHEMA,
-  userId: UUID_SCHEMA,
+  postId: UUID_SCHEMA.optional(),
+  userId: UUID_SCHEMA.optional(),
   parentId: UUID_SCHEMA.optional(),
 });
 
 // Reaction schema
 const ReactionSchema = z.object({
-  id: UUID_SCHEMA,
   emoji: z.string().min(1),
-  created: z.coerce.date(),
-  postId: UUID_SCHEMA,
-  userId: UUID_SCHEMA,
+  postId: UUID_SCHEMA.optional(),
 });
 
 // PrivateChat schema
 const PrivateChatSchema = z.object({
-  id: UUID_SCHEMA,
   text: z.string().optional(),
-  imgUrl: URL_SCHEMA,
+  imgUrl: URL_SCHEMA.optional(),
   read: z.boolean().default(false),
-  created: z.coerce.date(),
-  senderId: UUID_SCHEMA,
+  senderId: UUID_SCHEMA.optional(),
   receiverId: UUID_SCHEMA,
 });
 
