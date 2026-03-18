@@ -10,7 +10,7 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "jest --watch tests/group-chat/group-post-comment.test.js ",
+    "test": "jest --watch tests/notifications.test.js ",
     "start": "node src/server.js",
     "dev": "nodemon src/server.js"
   },

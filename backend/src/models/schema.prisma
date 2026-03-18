@@ -153,12 +153,12 @@ model Notifications {
     createdAt DateTime         @default(now())
     read      Boolean          @default(false)
 
-    // Who  send the notification 
-    userId     String?
-    user       User?   @relation("NotificationRecipient", fields: [userId], references: [id])
-    //who receiver the notification
+    // Who triggered the notification (the sender of the action)
+    senderId   String?
+    sender     User?   @relation("NotificationSender", fields: [senderId], references: [id])
+    // Who received the notification (the receiver)
     receiverId String?
-    receiver   User?   @relation("NotificationSender", fields: [receiverId], references: [id])
+    receiver   User?   @relation("NotificationRecipient", fields: [receiverId], references: [id])
 
     // Activity references (always tied back to a Post if group-related)
     postId String?
