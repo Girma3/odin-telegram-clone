@@ -6,6 +6,7 @@ import profileRouter from "./routes/profile-route.js";
 import groupRouter from "./routes/group-route.js";
 import groupPostRouter from "./routes/group-post-route.js";
 import privatePostRouter from "./routes/private-post-route.js";
+import notificationRouter from "./routes/notification-route.js";
 
 const app = express();
 
@@ -31,6 +32,8 @@ app.use("/groups", groupRouter);
 app.use("/posts", groupPostRouter);
 //private chat post,comment,reaction
 app.use("/private", privatePostRouter);
+// Notifications
+app.use("/notifications", notificationRouter);
 app.use((err, req, res, next) => {
   console.error(err.stack);
   return res.status(500).json({ message: "Something went wrong in server!" });
