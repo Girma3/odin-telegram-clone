@@ -1,4 +1,4 @@
-import { GroupSchema } from "../middlewares/validation/schema-validation.js";
+import { GroupSchema } from "../../middlewares/validation/schema-validation.js";
 import {
   createGroup,
   getGroupById,
@@ -13,7 +13,7 @@ import {
   isGroupMember,
   isGroupOwner,
   getUserGroupsCount,
-} from "../models/group-queries.js";
+} from "../../models/group-query/group-queries.js";
 
 // Create a new group
 async function createNewGroup(req, res) {
@@ -128,7 +128,7 @@ async function updateGroupHandler(req, res) {
       if (group?.profile) {
         // Update existing profile
         const { updateProfile } =
-          await import("../models/user-query/profile-query.js");
+          await import("../../models/user-query/profile-query.js");
         await updateProfile(group.profile.id, profileUpdates);
       }
     }

@@ -2,7 +2,6 @@ import {
   createProfile,
   updateProfile,
   deleteProfile,
-  getProfile,
   getProfileById,
 } from "../models/user-query/profile-query.js";
 import { ProfileSchema } from "../middlewares/validation/schema-validation.js";
