@@ -1,4 +1,4 @@
-import prismaGlobal from "./pool.js";
+import prismaGlobal from "../pool.js";
 
 // Create a new group
 async function createGroup(ownerId, name, profileData = {}) {

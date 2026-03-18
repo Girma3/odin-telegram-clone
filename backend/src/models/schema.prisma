@@ -24,10 +24,11 @@ model User {
     reactions Reactions[]
 
     // Private Messaging Relations
-    sentMessages     PrivateChats[]  @relation("SentMessages")
-    receivedMessages PrivateChats[]  @relation("ReceivedMessages")
-    notifications    Notifications[]
-    refreshTokens    RefreshToken[]
+    sentMessages      PrivateChats[]  @relation("SentMessages")
+    receivedMessages  PrivateChats[]  @relation("ReceivedMessages")
+    notifications     Notifications[] @relation("NotificationRecipient")
+    sentNotifications Notifications[] @relation("NotificationSender")
+    refreshTokens     RefreshToken[]
 }
 
 model Groups {
@@ -123,6 +124,7 @@ model PrivateChats {
     receiverId    String
     receiver      User            @relation("ReceivedMessages", fields: [receiverId], references: [id])
     notifications Notifications[]
+    reactions     Reactions[]
 }
 
 model Reactions {
@@ -130,14 +132,18 @@ model Reactions {
     emoji   String
     created DateTime @default(now())
 
-    postId String
-    post   Posts  @relation(fields: [postId], references: [id])
+    postId String?
+    post   Posts?  @relation(fields: [postId], references: [id])
+
+    chatId String?
+    chat   PrivateChats? @relation(fields: [chatId], references: [id])
 
     userId        String
     user          User            @relation(fields: [userId], references: [id])
     notifications Notifications[]
 
     @@unique([userId, postId]) // one reaction per user per post
+    @@unique([userId, chatId]) // one reaction per user per chat
 }
 
 model Notifications {
@@ -147,9 +153,12 @@ model Notifications {
     createdAt DateTime         @default(now())
     read      Boolean          @default(false)
 
-    // Who receives the notification
-    userId String
-    user   User   @relation(fields: [userId], references: [id])
+    // Who  send the notification 
+    userId     String?
+    user       User?   @relation("NotificationRecipient", fields: [userId], references: [id])
+    //who receiver the notification
+    receiverId String?
+    receiver   User?   @relation("NotificationSender", fields: [receiverId], references: [id])
 
     // Activity references (always tied back to a Post if group-related)
     postId String?
