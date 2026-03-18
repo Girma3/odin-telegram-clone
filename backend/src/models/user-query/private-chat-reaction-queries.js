@@ -121,8 +121,8 @@ async function addChatReaction(chatId, userId, emoji) {
       data: {
         type: "REACTION",
         message: `reacted to your message with ${emoji}`,
-        user: { connect: { id: notificationRecipientId } },
-        receiver: { connect: { id: userId } },
+        receiver: { connect: { id: notificationRecipientId } },
+        sender: { connect: { id: userId } },
         chat: { connect: { id: chatId } },
         reaction: { connect: { id: reaction.id } },
       },
