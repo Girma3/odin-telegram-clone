@@ -1,17 +1,13 @@
 import { WebSocketServer } from "ws";
 import { dispatchEvent, use } from "./dispatch-event.js";
-import {
-  clearNotifications,
-  getNotifications,
-  replayNotifications,
-} from "./utils/notification.js";
+import { replayNotifications } from "./utils/notification.js";
 import { setUserOffline, setUserOnline } from "./utils/presence.js";
 
 import logMiddleware from "./middleware/log.js";
 import { schemaValidationMiddleware } from "./middleware/validate-schema.js";
-
+let wss;
 function attachWebSocketServer(server) {
-  const wss = new WebSocketServer({ noServer: true });
+  wss = new WebSocketServer({ noServer: true });
 
   // Register middleware
   use(schemaValidationMiddleware);
@@ -59,7 +55,7 @@ function attachWebSocketServer(server) {
       }
     });
     // Replay missed notifications
-    // replayNotifications(ws.userId, ws);
+    replayNotifications(ws.userId, ws);
     // Heartbeat pong
     ws.on("pong", () => {
       ws.isAlive = true;
@@ -110,5 +106,7 @@ function attachWebSocketServer(server) {
 
   return wss;
 }
-
+export function getSocketServer() {
+  return wss;
+}
 export default attachWebSocketServer;

@@ -1,7 +1,10 @@
+import AppLayout from "./pages/AppLayout";
+import "./style.css";
+
 function App() {
   return (
     <>
-      <h1>Telegram clone</h1>
+      <AppLayout />
     </>
   );
 }
