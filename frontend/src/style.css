@@ -1,1 +1,99 @@
 @import "tailwindcss";
+
+* {
+  letter-spacing: 1.4px;
+  word-wrap: break-word;
+  line-height: 1.3rem;
+}
+button {
+  cursor: pointer;
+}
+
+/* Custom scrollbar - hidden by default, appears on hover */
+.scrollbar-thin {
+  scrollbar-width: none; /* Firefox - hide scrollbar */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+/* Hide scrollbar by default for WebKit browsers */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+/* Show scrollbar on hover */
+.scrollbar-thin:hover {
+  scrollbar-width: thin; /* Firefox - show thin scrollbar */
+  scrollbar-color: #3b82f6 #111827; /* blue-500 on slate-900 */
+}
+
+.scrollbar-thin:hover::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+  opacity: 1;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: #111827; /* slate-900 */
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: #3b82f6; /* blue-500 */
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background-color: #60a5fa; /* blue-400 on hover */
+}
+
+/* Original scrollbar styles (chunky version) */
+.scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #4b5563 #111827;
+}
+
+.scrollbar::-webkit-scrollbar {
+  width: 14px;
+}
+
+.scrollbar::-webkit-scrollbar-track {
+  background: #111827;
+}
+
+.scrollbar::-webkit-scrollbar-thumb {
+  background-color: #4b5563;
+  border-radius: 8px;
+  border: 3px solid #111827;
+}
+
+.scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #6b7280;
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out;
+}
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-slideUp {
+  animation: slideUp 0.25s ease-out;
+}
