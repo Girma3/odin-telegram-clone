@@ -13,27 +13,32 @@ const topHalf = `bg-gray-800 rounded-md w-full h-1/2 flex flex-col items-start j
 
 `;
 function SideBarOverlay({
+  user,
+  avatarUrl,
+  username,
+  hasGroup,
+  group,
   onProfileOpen,
   onCreateGroup,
-
-  hasGroup = true,
   onLogout,
 }) {
   return (
     <div className="text-yellow-50 transition ease-in-out duration-300">
       <div className={topHalf}>
         <img
-          src="/images/jet.jpg"
+          src={`${avatarUrl}`}
           alt="profile"
           className={imgStyle}
           loading="lazy"
         />
-        <p>Name</p>
+        <p>{username}</p>
       </div>
       <div className={linkHolder}>
         <button
           className={primaryLink}
-          onClick={() => onProfileOpen({ type: "user", id: 1 })}
+          onClick={() =>
+            onProfileOpen({ type: "user", user: user, isSelf: true })
+          }
         >
           Profile
         </button>
@@ -46,7 +51,9 @@ function SideBarOverlay({
         {hasGroup && (
           <button
             className={primaryLink}
-            onClick={() => onProfileOpen({ type: "group", id: 1 })}
+            onClick={() =>
+              onProfileOpen({ type: "group", group: group, isAdmin: true })
+            }
           >
             My Group Profile
           </button>

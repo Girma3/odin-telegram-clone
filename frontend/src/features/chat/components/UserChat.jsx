@@ -11,7 +11,7 @@ const chatHolderStyle = `
 `;
 
 const imgStyle = `
-  rounded-full sm:w-6 sm:h-6 w-5 h-5 shadow-md
+  rounded-full w-10 h-10 shadow-md object-cover ring-3  
 `;
 
 const nameStyle = `
@@ -28,8 +28,27 @@ const notificationStyle = `
   text-[0.5rem] font-bold
 `;
 
-function UserChat({ user = null }) {
-  if (!user) return null;
+function UserChat({ user, privateChats, currentUser }) {
+  const { profile, username } = user || {};
+  const status = user?.status || "OFFLINE";
+
+  if (!currentUser) return null;
+
+  const chatsWithUser = privateChats.filter(
+    (chat) =>
+      (chat.senderId === currentUser.id && chat.receiverId === user.id) ||
+      (chat.senderId === user.id && chat.receiverId === currentUser.id),
+  );
+  const lastMessage =
+    chatsWithUser.length > 0 ? chatsWithUser[chatsWithUser.length - 1] : null;
+  const previewText =
+    lastMessage && lastMessage.text && lastMessage.text.trim() !== ""
+      ? lastMessage.text.length > 20
+        ? lastMessage.text.slice(0, 20) + "..."
+        : lastMessage.text
+      : "send message";
+  //console.log(user.id, currentUser.id);
+
   return (
     <li
       className={`${chatHolderStyle} animate-slideUp duration-200 ease-in-out`}
@@ -40,10 +59,14 @@ function UserChat({ user = null }) {
       >
         {/* Left side: avatar + text */}
         <div className="flex items-center gap-2">
-          <img src={user.imgUrl} alt="profile" className={imgStyle} />
+          <img
+            src={profile.avatarUrl}
+            alt="profile"
+            className={`${imgStyle} ${status === "ONLINE" ? "ring-green-500" : "ring-gray-500"}`}
+          />
           <div>
-            <p className={nameStyle}>{user.name}</p>
-            <p className={msgStyle}>{user.msg}</p>
+            <p className={nameStyle}>{username}</p>
+            <p className={msgStyle}>{previewText}</p>
           </div>
         </div>
 

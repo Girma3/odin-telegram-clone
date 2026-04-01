@@ -30,29 +30,49 @@ const notificationStyle = `
 
 function GroupSingle({ group = null }) {
   if (!group) return null;
+  const { profile, name, id, posts } = group;
+  const { avatarUrl } = profile;
+  let lasPost =
+    posts.length > 0 ? posts[posts.length - 1].text : "no posts yet";
+  let lastImgPost = posts.length > 0 ? posts[posts.length - 1].imgUrl : null;
+
+  let previewText =
+    posts.length > 0
+      ? posts[posts.length - 1].text.slice(0, 20) + "..."
+      : "no posts yet";
+
   return (
     <li
       className={`${chatHolderStyle} animate-slideUp duration-200 ease-in-out`}
     >
       <Link
-        to={`/group/${group.id}`}
+        to={`/group/${id}`}
         className="flex justify-between items-center w-full"
       >
         {/* Left side: avatar + text */}
         <div className="flex items-center gap-2">
           <img
-            src={group.imgUrl}
+            src={`${avatarUrl}`}
             alt="profile"
             className={imgStyle}
             loading="lazy"
           />
-          <div>
-            <p className={nameStyle}>{group.name}</p>
-            <p className={msgStyle}>{group.msg}</p>
+          <div className="flex flex-col items-center justify-between">
+            <p className={nameStyle}>{name}</p>
+            {lastImgPost && (
+              <img
+                src={`${lastImgPost}`}
+                alt="last post"
+                className="w-6 h-6 object-cover "
+              />
+            )}
+            {posts.length > 0 && !lastImgPost && (
+              <p className={msgStyle}>{previewText}</p>
+            )}
           </div>
         </div>
 
-        <div className={notificationStyle}>2</div>
+        <div className={notificationStyle}>33</div>
       </Link>
     </li>
   );

@@ -10,14 +10,14 @@ function ProfileModal({ profileState, onClose }) {
       {profileState.type === "user" && (
         <ProfileCard
           isSelf={profileState.isSelf}
-          userId={profileState.id}
+          user={profileState.user}
           onClose={onClose}
         />
       )}
       {profileState.type === "group" && (
         <ProfileGroup
           isAdmin={profileState.isAdmin}
-          groupId={profileState.id}
+          group={profileState.group}
           onClose={onClose}
         />
       )}

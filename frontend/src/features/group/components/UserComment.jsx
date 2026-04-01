@@ -11,10 +11,12 @@ const imgStyle = `w-6 h-6 rounded-full shadow-md ring-1 ring-pink-400  object-co
  ring-green-300 relative bottom-0`;
 const liStyle = `flex justify-start items-end gap-3 p-2 relative`;
 
-function UserComment({ comment, imgUrl, owner = false, onProfileOpen }) {
+function UserComment({ user, comment, owner = false, onProfileOpen }) {
   const { text, created, id } = comment;
   const [hovered, setHovered] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const { profile } = user;
+  const { avatarUrl } = profile;
   const handlePost = ({ onProfileOpen }) => {
     setMenuOpen((prev) => !prev);
   };
@@ -28,16 +30,22 @@ function UserComment({ comment, imgUrl, owner = false, onProfileOpen }) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={handleMouseLeave}
     >
-      <button aria-label="profile" onClick={onProfileOpen}>
+      <button
+        aria-label="profile"
+        onClick={() =>
+          onProfileOpen({ type: "user", user: user, isSelf: false })
+        }
+      >
         <img
-          src="/images/jet.jpg"
+          src={`${avatarUrl}`}
           alt="profile"
           className={imgStyle}
           loading="lazy"
         />
       </button>
       <div className={chatHolderStyle}>
-        {imgUrl && (
+        {/* comment can't have image for now */}
+        {/* {imgUrl && (
           <img
             src={` ${imgUrl}
           `}
@@ -45,7 +53,7 @@ function UserComment({ comment, imgUrl, owner = false, onProfileOpen }) {
             className="rounded-sm"
             loading="lazy"
           />
-        )}
+        )} */}
         {text && <p>{text}</p>}
 
         <div className="flex justify-end items-center relative p-1">

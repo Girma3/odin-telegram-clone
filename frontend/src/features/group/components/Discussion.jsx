@@ -3,14 +3,19 @@ import PostByUser from "./PostByUser";
 import ChatWithComment from "./PostByUser";
 import UserComment from "./UserComment";
 const mainPost = `max-w-[600px]  h-max bg-gray-700 rounded-sm p-2`;
-
-function Discussion({ groups, onProfileOpen }) {
+function getUserByCommentId(users, comment) {
+  const user = users.find((user) => user.id === comment.userId);
+  return user;
+}
+function Discussion({ users, groups, onProfileOpen }) {
   const postId = useParams().id;
 
   const [searchParams] = useSearchParams();
-  const groupId = searchParams.get("groupId");
-  const group = groups.find((group) => group.id === parseInt(groupId));
-  const post = group.posts.find((post) => post.id === parseInt(postId));
+  let groupId = searchParams.get("groupId");
+  groupId = parseInt(groupId) ? parseInt(groupId) : groupId;
+  const group = groups.find((group) => group.id === groupId);
+
+  const post = group.posts.find((post) => post.id === postId);
   const comments = post.comments;
 
   const { text, imgUrl, created } = post;
@@ -36,11 +41,27 @@ function Discussion({ groups, onProfileOpen }) {
       {comments?.length > 0 && (
         <ul className="flex flex-col gap-3">
           {comments.map((comment) => (
-            <UserComment
-              key={comment.id}
-              comment={comment}
-              onProfileOpen={onProfileOpen}
-            />
+            <li key={comment.id}>
+              <UserComment
+                comment={comment}
+                user={getUserByCommentId(users, comment)}
+                onProfileOpen={onProfileOpen}
+              />
+              {comment.replies?.length > 0 && (
+                <ul className="flex flex-col gap-2 ml-6">
+                  {comment.replies.length > 0 &&
+                    comment.replies.map((reply) => (
+                      <UserComment
+                        key={reply.id}
+                        comment={reply}
+                        owner={true} //change later
+                        user={getUserByCommentId(users, reply)}
+                        onProfileOpen={onProfileOpen}
+                      />
+                    ))}
+                </ul>
+              )}
+            </li>
           ))}
         </ul>
       )}
