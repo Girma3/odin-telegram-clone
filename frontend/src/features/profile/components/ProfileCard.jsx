@@ -19,11 +19,13 @@ const inputStyle = `w-full px-4 sm:py-2 rounded-lg bg-white/10 border border-whi
    focus:border-transparent backdrop-blur-sm`;
 
 //accept flag to show edit button if user is logged in
-function ProfileCard({ isSelf = false, user, onClose }) {
+function ProfileCard({ isSelf, user, onClose }) {
   const [showPreview, setShowPreview] = useState(false);
   const [editing, setEditing] = useState(false);
 
   const fileInputRef = useRef(null);
+  const { profile, username } = user;
+  const { bio, avatarUrl, location, website } = profile;
 
   const handleButtonClick = () => {
     fileInputRef.current.click(); // programmatically open file picker
@@ -58,7 +60,7 @@ function ProfileCard({ isSelf = false, user, onClose }) {
               </button>
 
               <img
-                src="/images/jet.jpg"
+                src={`${avatarUrl}`}
                 alt="profile"
                 className=" w-full h-full w-max-[80%] h-max-[80%] object-cover rounded-sm"
               />
@@ -105,7 +107,7 @@ function ProfileCard({ isSelf = false, user, onClose }) {
                 title="click to Preview image"
               >
                 <img
-                  src="/images/jet.jpg"
+                  src={`${avatarUrl}`}
                   alt="profile"
                   className="rounded-full w-20 h-20 object-cover ring-1 ring-green-500 ring-offset-1"
                 />
@@ -155,13 +157,11 @@ function ProfileCard({ isSelf = false, user, onClose }) {
       {user && !editing && (
         <div className="flex flex-col items-start">
           <p className={labelStyle}>Bio</p>
-          <p className={infoStyle}>I'm a web developer</p>
+          <p className={infoStyle}>{bio}</p>
           <p className={labelStyle}>Location</p>
-          <p className={infoStyle}>Addis Abeba</p>
+          <p className={infoStyle}>{location}</p>
           <p className={labelStyle}>website</p>
-          <p className={infoStyle}>https://google.com</p>
-          <p>Joined</p>
-          <p>2023</p>
+          <p className={infoStyle}>{website}</p>
         </div>
       )}
     </div>

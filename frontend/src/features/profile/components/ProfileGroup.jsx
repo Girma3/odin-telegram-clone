@@ -23,6 +23,8 @@ function ProfileGroup({ isAdmin = true, group, onClose }) {
     handleSubmit,
     formState: { errors },
   } = useForm();
+  const { profile } = group;
+  const { avatarUrl, website, bio } = profile;
 
   const onSubmit = (data) => {
     console.log(data);
@@ -63,7 +65,7 @@ function ProfileGroup({ isAdmin = true, group, onClose }) {
               </button>
 
               <img
-                src="/images/jet.jpg"
+                src={`${avatarUrl}`}
                 alt="profile"
                 className=" w-full h-full w-max-[80%] h-max-[80%] object-cover rounded-sm"
                 loading="lazy"
@@ -111,10 +113,10 @@ function ProfileGroup({ isAdmin = true, group, onClose }) {
                 title="click to Preview image"
               >
                 <img
-                  src="/images/jet.jpg"
+                  src={`${avatarUrl}`}
                   alt="group-profile"
                   className="rounded-full w-20 h-20 object-cover ring-1 ring-green-500 ring-offset-1"
-                  loading="laxy"
+                  loading="lazy"
                 />
               </button>
               {/* upload image button */}
@@ -168,11 +170,13 @@ function ProfileGroup({ isAdmin = true, group, onClose }) {
       {!showPreview && !editing && (
         <div className="flex flex-col items-start">
           <p className={labelStyle}>Description</p>
-          <p className={infoStyle}>Great group</p>
-          <p className={labelStyle}>website</p>
-          <p className={infoStyle}>https://google.com</p>
-          <p>Created</p>
-          <p>2023</p>
+          <p className={infoStyle}>{bio}</p>
+          {website && (
+            <>
+              <p className={labelStyle}>website</p>
+              <p className={infoStyle}>{website}</p>
+            </>
+          )}
         </div>
       )}
     </div>
