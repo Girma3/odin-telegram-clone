@@ -1,5 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useForm } from "react-hook-form";
+import { useGetCurrentUser, useLogin, useSignup } from "../hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
 const labelStyle =
   "block sm:text-sm text-xs font-semibold text-gray-200 tracking-wide mb-1";
 
@@ -15,7 +18,7 @@ const activeLinkStyle =
 const cardStyle =
   "rounded-xl bg-white/5 border border-white/10 p-4 shadow-sm transition-all duration-300 hover:shadow-[0_0_20px_rgba(59,130,246,0.6)] hover:border-blue-500/50 cursor-pointer";
 
-function SignIn({ register }) {
+function SignIn({ register, errors }) {
   return (
     <>
       <label htmlFor="name" className={labelStyle}>
@@ -31,6 +34,9 @@ function SignIn({ register }) {
         })}
         className={inputStyle}
       />
+      {errors.name && (
+        <p className="text-amber-500 text-xs">{errors.name.message}</p>
+      )}
 
       <label htmlFor="email" className={labelStyle}>
         EMAIL
@@ -45,26 +51,16 @@ function SignIn({ register }) {
         })}
         className={inputStyle}
       />
+      {errors.email && (
+        <p className="text-amber-500 text-xs">{errors.email.message}</p>
+      )}
     </>
   );
 }
 
-function LogIn({ register }) {
+function LogIn({ register, errors }) {
   return (
     <>
-      <label htmlFor="name" className={labelStyle}>
-        USERNAME
-      </label>
-      <input
-        type="text"
-        id="name"
-        placeholder="KING"
-        {...register("name", {
-          required: "Name is required",
-          minLength: { value: 2, message: "Name is too short" },
-        })}
-        className={inputStyle}
-      />
       <label htmlFor="email" className={labelStyle}>
         EMAIL
       </label>
@@ -78,34 +74,86 @@ function LogIn({ register }) {
         })}
         className={inputStyle}
       />
+      {errors.email && (
+        <p className="text-amber-500 text-xs">{errors.email.message}</p>
+      )}
     </>
   );
 }
 
 function Form() {
-  const { register, handleSubmit, formState } = useForm();
+  const navigate = useNavigate();
+  const { register, handleSubmit, formState, reset, clearErrors } = useForm();
   const { errors } = formState;
-
   const [showLogin, setShowLogin] = useState(true);
+  //check if we had data
+  const { data: user, isLoading } = useGetCurrentUser();
+  //fetch rather than calling backend
 
-  function onSubmit(data) {
-    console.log("FORM DATA:", data);
-  }
+  useEffect(() => {
+    if (user && !isLoading) {
+      navigate("/", { replace: true });
+    }
+  }, [user, navigate, isLoading]);
+
+  const {
+    mutate: signupMutate,
+    isLoading: signupLoading,
+    isError: signupError,
+    error: signupErrorMessage,
+    reset: signupReset,
+  } = useSignup({
+    onSuccess: () => {
+      navigate("/");
+    },
+  });
+
+  const {
+    mutate: loginMutate,
+    isLoading: loginLoading,
+    isError: loginError,
+    error: loginErrorMessage,
+    reset: loginReset,
+  } = useLogin({
+    onSuccess: () => {
+      navigate("/");
+    },
+  });
+
+  const onSubmit = (data) => {
+    if (showLogin) {
+      loginMutate(data);
+    } else {
+      signupMutate(data);
+    }
+  };
 
   return (
     <div className={cardStyle}>
       <div className="flex gap-7">
         <button
           type="button"
-          className={showLogin ? activeLinkStyle : linkStyle}
-          onClick={() => setShowLogin(() => !showLogin)}
+          className={!showLogin ? activeLinkStyle : linkStyle}
+          onClick={() => {
+            reset();
+            clearErrors();
+            loginReset();
+            signupReset();
+            setShowLogin(() => !showLogin);
+          }}
         >
           SIGN IN
         </button>
         <button
           type="button"
-          className={!showLogin ? activeLinkStyle : linkStyle}
-          onClick={() => setShowLogin(() => !showLogin)}
+          className={showLogin ? activeLinkStyle : linkStyle}
+          onClick={() => {
+            reset();
+            clearErrors();
+            loginReset();
+            signupReset();
+            setShowLogin(() => !showLogin);
+          }}
         >
           LOG IN
         </button>
@@ -116,18 +164,36 @@ function Form() {
         className="flex flex-col items-center justify-between gap-2 break-all   "
       >
         {showLogin ? (
-          <LogIn register={register} />
+          <LogIn register={register} errors={loginError} />
         ) : (
-          <SignIn register={register} />
+          <SignIn register={register} errors={signupError} />
         )}
-        {!showLogin ? (
+
+        {(loginError || signupError) && (
+          <p className="text-amber-600 text-xs mt-2">
+            {(loginErrorMessage || signupErrorMessage)?.message ||
+              "Authentication failed"}
+          </p>
+        )}
+
+        {(showLogin ? loginLoading : signupLoading) && (
+          <p className="text-blue-300 text-xs mt-2">Submitting...</p>
+        )}
+
+        {showLogin ? (
           <>
             <p className="text-center text-amber-300">
               Don't have an account?{" "}
             </p>
             <button
               className={`${linkStyle} ${activeLinkStyle} `} //linkStyle}
-              onClick={() => setShowLogin(() => !showLogin)}
+              onClick={() => {
+                reset();
+                clearErrors();
+                loginReset();
+                signupReset();
+                setShowLogin(() => !showLogin);
+              }}
             >
               Sign Up
             </button>
@@ -139,7 +205,13 @@ function Form() {
             </p>
             <button
               className={`${linkStyle} ${activeLinkStyle} `} //linkStyle}
-              onClick={() => setShowLogin(() => !showLogin)}
+              onClick={() => {
+                reset();
+                clearErrors();
+                loginReset();
+                signupReset();
+                setShowLogin(() => !showLogin);
+              }}
             >
               Log In
             </button>
@@ -147,7 +219,7 @@ function Form() {
         )}
 
         <button type="submit" className={buttonPrimary}>
-          {showLogin ? "SIGN IN" : "LOG IN"}
+          {!showLogin ? "SIGN IN" : "LOG IN"}
         </button>
       </form>
     </div>

@@ -2,30 +2,103 @@ import { useRef, useState } from "react";
 import { MdDownloadForOffline } from "react-icons/md";
 import { MdModeEdit } from "react-icons/md";
 import { IoMdCloseCircle } from "react-icons/io";
+import { RiImageEditFill } from "react-icons/ri";
 import { useForm } from "react-hook-form";
 
 import { ProfileCardStyle } from "../../../styles.js";
-
-import { RiImageEditFill } from "react-icons/ri";
+import ProfileForm from "./ProfileForm.jsx";
 import Modal from "./Modal.jsx";
+
+import {
+  useCreateProfile,
+  useUpdateProfile,
+  useGetProfile,
+  useGetProfileByUser,
+} from "../hooks/useProfile.js";
 
 const labelStyle = `font-semibold text-xs text-amber-200 tracking-wide mb-1`;
 const infoStyle = `text-xs text-stone-300 [text-shadow:0_0_12px_rgba(59,130,246,1]`;
 const iconStyle = `  transition-all duration-200 cursor-pointer`;
-const formLabelStyle = `font-semibold text-md text-amber-200 tracking-wide `;
-
-const inputStyle = `w-full px-4 sm:py-2 rounded-lg bg-white/10 border border-white/20 text-gray-100
-   placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 
-   focus:border-transparent backdrop-blur-sm`;
 
 //accept flag to show edit button if user is logged in
 function ProfileCard({ isSelf, user, onClose }) {
   const [showPreview, setShowPreview] = useState(false);
   const [editing, setEditing] = useState(false);
+  //console.log(user);
+
+  const { data, isError, isLoading } = useGetProfileByUser(user?.id);
+  //if user is new user, create profile
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+  if (isError) {
+    return <div>Error</div>;
+  }
+
+  const profile = {
+    avatarUrl: data?.avatarUrl,
+    bio: data?.bio,
+    location: data?.location,
+    website: data?.website,
+  };
+  // form to create or update
+  const { register, handleSubmit, formState, setValue } = useForm({
+    defaultValues: {
+      name: user?.username || "",
+      bio: profile?.bio || "",
+      location: profile?.location || "",
+      website: profile?.website || "",
+    },
+  });
+
+  const { errors } = formState;
+  const {
+    mutate: createProfileMutate,
+    data: createProfile,
+    isLoading: createProfileLoading,
+    isError: createProfileError,
+    error: createProfileErrorMessage,
+    reset: createProfileReset,
+  } = useCreateProfile();
+  const {
+    mutate: updateProfileMutate,
+    data: updateProfile,
+    isLoading: updateProfileLoading,
+    isError: updateProfileError,
+    error: updateProfileErrorMessage,
+    reset: updateProfileReset,
+  } = useUpdateProfile();
+  const handleUpdateSubmit = (data) => {
+    const payload = { ...data, userId: user.id };
+    updateProfileMutate(payload);
+  };
+  const handleCreateSubmit = (data) => {
+    const payload = { ...data, userId: user.id };
+    createProfileMutate(payload);
+  };
 
   const fileInputRef = useRef(null);
-  const { profile, username } = user;
-  const { bio, avatarUrl, location, website } = profile;
+  const { avatarUrl, bio, location, website } = profile;
+  const isProfileEmpty = Object.values(profile).every(
+    (value) => value == null || value === "",
+  );
+
+  //if user just new show form
+  if (user && isProfileEmpty) {
+    return (
+      <>
+        <h1 className="text-center text-shadow-fuchsia-200">Edit Profile</h1>
+        <ProfileForm
+          user={user}
+          register={register}
+          errors={errors}
+          onSubmit={handleCreateSubmit}
+          handleSubmit={handleSubmit}
+        />
+      </>
+    );
+  }
 
   const handleButtonClick = () => {
     fileInputRef.current.click(); // programmatically open file picker
@@ -150,7 +223,14 @@ function ProfileCard({ isSelf, user, onClose }) {
               className={`fill-yellow-200 hover:fill-red-600 ${iconStyle}`}
             />
           </button>
-          <EditProfile user={user} />
+          <h1 className="text-center text-shadow-indigo-100">Edit Profile</h1>
+          <ProfileForm
+            user={user}
+            register={register}
+            handleSubmit={handleSubmit}
+            errors={errors}
+            onSubmit={handleUpdateSubmit}
+          />
         </>
       )}
 
@@ -165,103 +245,6 @@ function ProfileCard({ isSelf, user, onClose }) {
         </div>
       )}
     </div>
-  );
-}
-
-function EditProfile({ user }) {
-  const { register, handleSubmit, formState } = useForm();
-  const { errors } = formState;
-  const onSubmit = (data) => {
-    console.log(data);
-  };
-  return (
-    <form
-      autoComplete="on"
-      className="flex flex-col items-center gap-2 w-full h-full"
-      onSubmit={handleSubmit(onSubmit)}
-    >
-      <label
-        htmlFor="userName"
-        area-label="userName"
-        className={formLabelStyle}
-      >
-        Name
-      </label>
-      <input
-        type="text"
-        name="userName"
-        id="userName"
-        className={inputStyle}
-        {...register("name", {
-          minLength: { value: 2, message: "Name is too short" },
-        })}
-      />
-      {errors.name && (
-        <p className="text-red-500 text-xs">{errors.name.message}</p>
-      )}
-      <label htmlFor="userBio" aria-label="userBio" className={formLabelStyle}>
-        Bio
-      </label>
-      <input
-        type="text"
-        name="userBio"
-        id="userBio"
-        className={inputStyle}
-        {...register("userBio", {
-          minLength: { value: 2, message: "Bio is too short" },
-          maxLength: { value: 100, message: "Bio is too long" },
-        })}
-      />
-      {errors.userBio && (
-        <p className="text-red-500 text-xs">{errors.userBio.message}</p>
-      )}
-      <label
-        htmlFor="userLocation"
-        aria-label="userLocation"
-        className={formLabelStyle}
-      >
-        Location
-      </label>
-      <input
-        type="text"
-        name="userLocation"
-        id="userLocation"
-        className={inputStyle}
-        {...register("userLocation", {
-          minLength: { value: 2, message: "Location is too short" },
-          maxLength: {
-            value: 100,
-            message: "Location  too long.",
-          },
-        })}
-      />
-      {errors.userLocation && (
-        <p className="text-red-500 text-xs">{errors.userLocation.message}</p>
-      )}
-      <label
-        htmlFor="userWebsite"
-        aria-label="userWebsite"
-        className={formLabelStyle}
-      >
-        Website
-      </label>
-      <input
-        type="text"
-        name="userWebsite"
-        id="userWebsite"
-        className={inputStyle}
-        {...register("userWebsite", {
-          minLength: { value: 2, message: "Website is too short" },
-          maxLength: { value: 100, message: "Website is too long" },
-        })}
-      />
-      {errors.userWebsite && (
-        <p className="text-red-500 text-xs">{errors.userWebsite.message}</p>
-      )}
-      <button type="submit" className="w-full bg-pink-600 rounded-sm py-2">
-        Save
-      </button>
-    </form>
   );
 }
 
