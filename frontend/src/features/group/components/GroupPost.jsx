@@ -1,10 +1,22 @@
 import { useState, useMemo } from "react";
+import { toast, ToastContainer } from "react-toastify";
 import { FaReply } from "react-icons/fa";
 import { CiMenuKebab } from "react-icons/ci";
 import { Link } from "react-router-dom";
+
 import { chatHolderStyle } from "./PostByUser";
 import Reaction from "../../chat/Reaction";
 import KebabMenu from "../../chat/components/KebabMenu";
+import {
+  useGetReactions,
+  useAddReaction,
+  useDeleteReaction,
+} from "../hooks/useReaction";
+import {
+  formatDate,
+  getMonthAndYear,
+  getTheTime,
+} from "../../../services/helperFns";
 
 // Constants
 const ICON_STYLES = {
@@ -19,6 +31,7 @@ const IMAGE_STYLES = {
 
 // Helper function to get commenter image with error handling
 function getCommenterImage(users, comment) {
+  if (!users || !comment) return null;
   const user = users.find((u) => u.id === comment.userId);
   if (!user) {
     console.log(`User not found for comment userId: ${comment.userId}`);
@@ -68,16 +81,16 @@ function GroupPost({
   currentUser,
   onProfileOpen,
 }) {
-  const { imgUrl, text, id, created, author } = post;
+  const { id: authorId, avatarUrl } = post?.author?.profile;
+  const { id: postId, text, imgUrl } = post;
+  const { username } = post.author;
   const [hovered, setHovered] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [emoji, setEmoji] = useState(null);
 
   // Memoize derived data to avoid recalculation on every render
   const comments = useMemo(() => post.comments || [], [post.comments]);
-  const commentCount = useMemo(
-    () => formatCommentCount(comments.length),
-    [comments.length],
-  );
+  const commentCount = useMemo(() => comments.length, [comments]);
 
   const commenterUsers = useMemo(() => {
     if (comments.length === 0) return [];
@@ -107,7 +120,64 @@ function GroupPost({
       document.body.removeChild(link);
     }
   };
+  //add reaction to post
+  const addReactionMutation = useAddReaction({
+    onSuccess: () => {
+      notifyAddReaction();
+    },
+    onError: () => {
+      toast("Error adding reaction");
+    },
+  });
+  //remove reaction to post
+  const removeReactionMutation = useDeleteReaction({
+    onSuccess: () => {
+      notifyRemoveReaction();
+    },
+    onError: () => {
+      toast({
+        title: "Error removing reaction",
+        description: "Please try again",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    },
+  });
+  const notifyAddReaction = () => {
+    toast({
+      title: "Reaction added",
+      description: "You reacted to this post",
+      status: "success",
+      duration: 5000,
+      isClosable: true,
+    });
+  };
+  const notifyRemoveReaction = () => {
+    toast("Reaction removed");
+  };
 
+  const handleAddReaction = (emoji) => {
+    addReactionMutation.mutate({
+      postId,
+      emoji,
+    });
+  };
+  const handleRemoveReaction = (emoji) => {
+    removeReactionMutation.mutate({
+      postId,
+      emoji,
+    });
+  };
+  const handleReaction = (reaction) => {
+    if (emoji === reaction) {
+      handleRemoveReaction(reaction);
+      setEmoji(null);
+    } else {
+      handleAddReaction(reaction);
+      setEmoji(reaction);
+    }
+  };
   return (
     <li
       className="flex justify-start items-end gap-3 p-1 w-max max-w-175"
@@ -182,7 +252,7 @@ function GroupPost({
             {menuOpen && <KebabMenu />}
 
             {/* Reply/Comment Link */}
-            <Link to={`/post/discussion/${id}?groupId=${groupId}`}>
+            <Link to={`/post/discussion/${postId}?groupId=${groupId}`}>
               <button aria-label="Reply to post" type="button">
                 <FaReply className={ICON_STYLES.reply} />
               </button>
@@ -192,16 +262,23 @@ function GroupPost({
           {/* Reaction Button (non-admin only) */}
           {!isAdmin && hovered && (
             <div>
-              <Reaction />
+              <Reaction onSelect={handleReaction} />
             </div>
           )}
         </div>
 
         {/* Post Metadata (Author and Timestamp) */}
-        {created && (
+        {post?.created && (
           <div className="flex justify-end items-center gap-2 text-sm text-gray-500">
-            {author && <span className="font-medium">{author}</span>}
-            <time dateTime={created}>{created}</time>
+            {username && (
+              <span key={username} className="font-medium">
+                {username}
+              </span>
+            )}
+            <time className="flex flex-col" dateTime={post.created}>
+              <p>{getMonthAndYear(post.created)}</p>
+              <p>{getTheTime(post.created)}</p>
+            </time>
           </div>
         )}
       </div>
