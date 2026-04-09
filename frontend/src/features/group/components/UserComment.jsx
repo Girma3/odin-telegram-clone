@@ -5,18 +5,27 @@ import Reaction from "../../chat/Reaction";
 import { CiMenuKebab } from "react-icons/ci";
 import KebabMenu from "../../chat/components/KebabMenu";
 import { Link } from "react-router-dom";
+import { useUpdateComment } from "../hooks/useComments";
 const iconStyle = `w-4 h-4 fill-pink-400  transition-all duration-300 ease-in-out rounded-full
   hover:fill-green-600 cursor-pointer`;
 const imgStyle = `w-6 h-6 rounded-full shadow-md ring-1 ring-pink-400  object-cover ring-offset-1
  ring-green-300 relative bottom-0`;
 const liStyle = `flex justify-start items-end gap-3 p-2 relative`;
 
-function UserComment({ user, comment, owner = false, onProfileOpen }) {
-  const { text, created, id } = comment;
+function UserComment({
+  user,
+  comment,
+  owner = false,
+  onProfileOpen,
+  onCommentDelete,
+  onCommentEdit,
+  onNestedComment,
+}) {
+  const { text, created, id: commentId, userId, parentId, postId } = comment;
+  const { avatarUrl } = comment?.author?.profile;
   const [hovered, setHovered] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const { profile } = user;
-  const { avatarUrl } = profile;
+
   const handlePost = ({ onProfileOpen }) => {
     setMenuOpen((prev) => !prev);
   };
@@ -24,6 +33,7 @@ function UserComment({ user, comment, owner = false, onProfileOpen }) {
     setHovered(false);
     setMenuOpen(false);
   };
+
   return (
     <li
       className="flex justify-start  items-end gap-3 p-1 w-max max-w-175 "
@@ -55,6 +65,9 @@ function UserComment({ user, comment, owner = false, onProfileOpen }) {
           />
         )} */}
         {text && <p>{text}</p>}
+        <p className="text-amber-400">
+          is current user author {owner ? "yes" : "no"}
+        </p>
 
         <div className="flex justify-end items-center relative p-1">
           <div className="flex items-center w-max justify-baseline mx-4 h-3 ">
@@ -67,12 +80,20 @@ function UserComment({ user, comment, owner = false, onProfileOpen }) {
               </div>
             )}
 
-            {menuOpen && <KebabMenu />}
-            <Link to={`comments/${id}`}>
-              <button aria-label="reply">
-                <FaReply className={iconStyle} />
-              </button>
-            </Link>
+            {menuOpen && (
+              <KebabMenu
+                onEdit={() => onCommentEdit(commentId)}
+                onDelete={() => onCommentDelete(commentId)}
+              />
+            )}
+
+            <button
+              aria-label="reply"
+              title="reply"
+              onClick={() => onNestedComment(commentId)}
+            >
+              <FaReply aria-hidden="true" className={iconStyle} />
+            </button>
           </div>
           {/* Hover reactions */}
           {!owner && hovered && <Reaction />}

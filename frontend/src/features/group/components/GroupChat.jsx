@@ -1,24 +1,182 @@
 import { useParams } from "react-router-dom";
+import { ToastContainer, toast } from "react-toastify";
 import GroupPost from "./GroupPost";
+import { useGetGroup } from "../hooks/useGroups";
+import ChatInput from "../../chat/components/ChatInput";
+import {
+  useCreatePost,
+  useDeletePost,
+  useGetAllPosts,
+  useGetGroupPosts,
+  useUpdatePost,
+} from "../hooks/usePosts";
+import { useState } from "react";
 
 const header = `bg-gray-700 p-4 `;
 const imgStyle = `w-10 h-10 rounded-full shadow-md ring-1 ring-green-300 offset-2`;
+function isUserAdmin(userId, postId) {
+  return userId === postId;
+}
+function getPostById(posts, id) {
+  return posts.find((post) => post.id === id);
+}
+function GroupChat({ users, currentUser, onProfileOpen }) {
+  let groupId = useParams().id;
+  //get clicked post id and show input with data
+  const [editedPost, setEditedPost] = useState(null);
+  const [editedPostData, setEditedPostData] = useState(null);
 
-function GroupChat({ users, groups, currentUser, onProfileOpen }) {
-  let groupId = useParams();
-  groupId = parseInt(groupId.id) ? parseInt(groupId.id) : groupId.id; //make it number later
-  const group = groups.find((group) => group.id == groupId);
+  const { data: group, isLoading, isError } = useGetGroup(groupId);
+  const {
+    data: allPosts,
+    isLoading: isPostsLoading,
+    isError: isPostsError,
+    error: postsError,
+  } = useGetGroupPosts(groupId);
+  const createNewPostMutation = useCreatePost({
+    onSuccess: () => {
+      notifyCreatePostSuccess();
+    },
+    onError: () => {
+      notifyCreatePostErr();
+    },
+  });
+  const notifyCreatePostErr = () =>
+    toast({
+      type: "error",
+      title: "Error",
+      message: "Failed to create post",
+      status: "error",
+      duration: 5000,
+      isClosable: true,
+    });
+  const notifyCreatePostSuccess = () =>
+    toast({
+      type: "success",
+      title: "Success",
+      message: "Post created successfully",
+      status: "success",
+      duration: 5000,
+      isClosable: true,
+    });
+  const deletePostMutation = useDeletePost({
+    onSuccess: () => {
+      notifyDeletePostSuccess();
+    },
+    onError: () => {
+      notifyDeletePostErr();
+    },
+  });
+  const editPostMutation = useUpdatePost({
+    onSuccess: () => {
+      notifyEditPostSuccess();
+    },
+    onError: () => {
+      notifyEditPostErr();
+    },
+  });
 
-  if (!group) return null;
+  const notifyEditPostErr = () =>
+    toast({
+      type: "error",
+      title: "Error",
+      message: "Failed to edit post",
+      status: "error",
+      duration: 5000,
+      isClosable: true,
+    });
+  const notifyEditPostSuccess = () =>
+    toast({
+      type: "success",
+      title: "Success",
+      message: "Post edited successfully",
+      status: "success",
+      duration: 5000,
+      isClosable: true,
+    });
+  const notifyDeletePostErr = () =>
+    toast({
+      type: "error",
+      title: "Error",
+      message: "Failed to delete post",
+      status: "error",
+      duration: 5000,
+      isClosable: true,
+    });
+  const notifyDeletePostSuccess = () =>
+    toast({
+      type: "success",
+      title: "Success",
+      message: "Post deleted successfully",
+      status: "success",
+      duration: 5000,
+      isClosable: true,
+    });
+
+  //create post
+
+  if (isLoading) return <div>Loading...</div>;
+  if (isError) return <div>Error</div>;
+
+  const handleNewPost = (data) => {
+    if (!group) return;
+    //remove undefined values
+    Object.keys(data).forEach((key) => {
+      if (data[key] === undefined || data[key] === null) {
+        delete data[key];
+      }
+    });
+    const payload = { groupId: group.id, ...data };
+    console.log(payload);
+    createNewPostMutation.mutate(payload);
+    //createPost(payload);
+  };
+
+  const notifyPostErr = () =>
+    toast({
+      type: "error",
+      title: "Error",
+      message: `${createPostError.message}`,
+    });
+
+  if (!group || group.length === 0) return null;
   const { id, profile, ownerId, name, members, posts } = group;
   const { avatarUrl } = profile;
   //get current user to see it's admin to able edit group info
-  let isAdmin = ownerId === 1 ? true : false; //change after auth
+  let isAdmin = currentUser.id === ownerId;
 
   let membersCount =
     members > 1
       ? `${members.length + 1} members`
       : `${members.length + 1} member`;
+
+  const handleDeletePost = (id) => {
+    deletePostMutation.mutate(id);
+  };
+
+  const handleEditPost = (id) => {
+    setEditedPost(id);
+    const post = getPostById(allPosts, id);
+    if (post) {
+      setEditedPostData(post);
+    }
+  };
+  const handleUpdateForm = (data) => {
+    if (!data) {
+      return;
+    }
+    //remove undefined values and null
+    Object.keys(data).forEach((key) => {
+      if (data[key] === null || data[key] === undefined) {
+        delete data[key];
+      }
+    });
+    const payload = { postId: editedPostData?.id, ...data };
+
+    editPostMutation.mutate(payload);
+    setEditedPost(null);
+    setEditedPostData(null);
+  };
 
   return (
     <div>
@@ -43,21 +201,46 @@ function GroupChat({ users, groups, currentUser, onProfileOpen }) {
           <p>{membersCount}</p>
         </div>
       </div>
-
+      <div></div>
       <ul className="flex flex-col gap-2 justify-between p-2">
         {/* pass members not users later */}
-        {posts?.map((post) => (
-          <GroupPost
-            key={post.id}
-            post={post}
-            currentUser={currentUser}
-            groupId={groupId}
-            users={users}
-            isAdmin={false} //change after auth
-            onProfileOpen={onProfileOpen}
-          />
-        ))}
+        {allPosts &&
+          allPosts?.map((post) => (
+            <GroupPost
+              key={post.id}
+              post={post}
+              currentUser={currentUser}
+              groupId={groupId}
+              users={users}
+              isAdmin={isUserAdmin(currentUser.id, post.userId)}
+              onProfileOpen={onProfileOpen}
+              onDeletePost={handleDeletePost}
+              onEditPost={handleEditPost}
+            />
+          ))}
       </ul>
+      {editedPost && (
+        <div>
+          <button
+            onClick={() => {
+              setEditedPost(null);
+              setEditedPostData(null);
+            }}
+          >
+            Cancel edit
+          </button>
+          <ChatInput
+            onSubmit={handleUpdateForm}
+            editData={editedPostData?.text}
+          />
+        </div>
+      )}
+
+      {!editedPost && (
+        <div>
+          <ChatInput onSubmit={handleNewPost} />
+        </div>
+      )}
     </div>
   );
 }

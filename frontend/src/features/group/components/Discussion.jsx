@@ -12,6 +12,7 @@ import ChatInput from "../../chat/components/ChatInput";
 import { useEffect, useState } from "react";
 import CommentThread from "./CommentThread";
 import ReplyInput from "../../chat/components/ReplyInput";
+import { getMonthAndYear } from "../../../services/helperFns";
 const mainPost = `max-w-[600px]  h-max bg-gray-700 rounded-sm p-2`;
 function getUserByCommentId(users, comment) {
   const user = users.find((user) => user.id === comment.userId);
@@ -26,15 +27,23 @@ function getCommentById(comments, commentId) {
 }
 function Discussion({ users, groups, onProfileOpen }) {
   const postId = useParams().id;
-  const [searchParams] = useSearchParams();
   const [commentEditId, setCommentEditId] = useState(null);
   const [editCommentData, setEditCommentData] = useState(null);
-  const [commentDelete, setCommentDelete] = useState(null);
+
   //catch if reply is nested
   const [parentCommentId, setParentCommentId] = useState(null);
-  const handleCommendEdit = (commentId) => {
-    setCommentEditId(commentId);
-  };
+  const {
+    data: post,
+    isLoading: isPostLoading,
+    isError: isPostError,
+  } = useGetPost(postId);
+  if (isPostLoading) {
+    return <div>Loading..</div>;
+  }
+  if (isPostError) {
+    return <div>error</div>;
+  }
+
   useEffect(() => {
     if (commentEditId) {
       const comment = getCommentById(comments, commentEditId);
@@ -43,25 +52,65 @@ function Discussion({ users, groups, onProfileOpen }) {
     }
   }, [commentEditId]);
 
-  const {
-    data: post,
-    isLoading: isPostLoading,
-    isError: isPostError,
-  } = useGetPost(postId);
-  const {
-    mutate: createComment,
-    isLoading: isCreating,
-    isError: isCreatingError,
-    isSuccess: isCreatingSuccess,
-    error: createCommentError,
-  } = useCreateComment();
+  const handleCommendEdit = (commentId) => {
+    setCommentEditId(commentId);
+  };
+  const createCommentMutation = useCreateComment({
+    onSuccess: () => {
+      notifyCommentCreate();
+      setParentCommentId(null);
+    },
+    onError: () => {
+      notifyCommentCreateErr();
+    },
+  });
+  const notifyCommentCreate = () => {
+    toast({
+      type: "success",
+      title: "Success",
+      message: "Comment Created.",
+      status: "success",
+      duration: 5000,
+      isClosable: true,
+    });
+  };
+  const notifyCommentCreateErr = () => {
+    toast({
+      type: "error",
+      title: "Error",
+      message: "comment not created try again.",
+      status: "error",
+      duration: 5000,
+      isClosable: true,
+    });
+  };
+
   //edit comment
-  const {
-    mutate: updateComment,
-    isLoading: isUpdating,
-    isError: isUpdatingError,
-    isSuccess: isUpdatingSuccess,
-  } = useUpdateComment();
+
+  const updateCommentMutation = useUpdateComment({
+    onSuccess: () => {
+      notifyCommentSuccess({
+        type: "success",
+        title: "Success",
+        message: "Comment updated",
+        status: "success",
+        duration: 5000,
+        isClosable: true,
+      });
+      setCommentEditId(null);
+      setEditCommentData(null);
+    },
+    onError: (error) => {
+      notifyCommentErr({
+        type: "error",
+        title: "Error",
+        message: error.message,
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    },
+  });
 
   if (isPostLoading) return <div>Loading...</div>;
   if (isPostError) return <div>Error</div>;
@@ -73,6 +122,9 @@ function Discussion({ users, groups, onProfileOpen }) {
         type: "success",
         title: "Success",
         message: "Comment deleted",
+        status: "success",
+        duration: 5000,
+        isClosable: true,
       });
     },
     onError: (error) => {
@@ -80,11 +132,15 @@ function Discussion({ users, groups, onProfileOpen }) {
         type: "error",
         title: "Error",
         message: error.message,
+        status: "error",
+        duration: 5000,
+        isClosable: true,
       });
     },
   });
-
+  console.log(post);
   const handleCommentDelete = (commentId, postId) => {
+    if (!commentId || !postId) return;
     deleteCommentMutation.mutate({ commentId, postId });
   };
 
@@ -100,24 +156,9 @@ function Discussion({ users, groups, onProfileOpen }) {
     if (parentCommentId) {
       payload = { postId: post.id, ...data, parentId: parentCommentId };
     }
-
-    createComment(payload);
-    if (isCreatingSuccess) {
-      notifyCommentSuccess();
-      setParentCommentId(null);
-    }
-    if (isCreatingError) {
-      notifyCommentErr();
-    }
+    createCommentMutation.mutate(payload);
   }
 
-  const notifyCommentErr = () =>
-    toast({
-      type: "error",
-      title: "Error",
-      message: `${createCommentError?.message}`,
-    });
-  const notifyCommentSuccess = () => toast("Comment created");
   function handleCommentUpdate(data) {
     //validate
     Object.keys(data).forEach((key) => {
@@ -132,21 +173,13 @@ function Discussion({ users, groups, onProfileOpen }) {
       ...data,
     };
     console.log(data);
-    updateComment(payload);
-    if (isUpdatingSuccess) {
-      notifyCommentSuccess();
-      setCommentEditId(null);
-      setEditCommentData(null);
-    }
-    if (isUpdatingError) {
-      notifyCommentErr();
-    }
+    updateCommentMutation.mutate(payload);
   }
   const handleNestedComment = (id) => {
     setParentCommentId(id);
     console.log(parentCommentId);
   };
-  console.log(post);
+  // console.log(post);
 
   let groupId = post.groupId;
   const { comments } = post;
@@ -167,7 +200,7 @@ function Discussion({ users, groups, onProfileOpen }) {
           )}
           {text && <p className="py-2">{text}</p>}
           <div className="flex justify-end items-center">
-            <span>{created}</span>
+            <span>{getMonthAndYear(created)}</span>
           </div>
         </div>
       </div>
@@ -201,17 +234,31 @@ function Discussion({ users, groups, onProfileOpen }) {
       )}
 
       <div>
-        <h1 className="text-amber-400">Editing comment</h1>
-
-        <button onClick={() => setCommentEditId(null)}>Cancel</button>
-        {!editCommentData && (
-          <ReplyInput onSubmit={handleCommentSubmit} editData={null} />
+        {!editCommentData && !commentEditId && !parentCommentId && (
+          <ReplyInput onSubmit={handleCommentSubmit} />
         )}
-        {editCommentData && (
-          <ReplyInput
-            editData={editCommentData?.text}
-            onSubmit={{ handleCommentUpdate }}
-          />
+        {parentCommentId && (
+          <>
+            <h1 className="text-amber-400">Nested reply input</h1>
+            <ReplyInput onSubmit={handleCommentSubmit} />
+          </>
+        )}
+        {editCommentData && commentEditId && (
+          <>
+            <button
+              onClick={() => {
+                setCommentEditId(null);
+                setEditCommentData(null);
+              }}
+            >
+              Cancel
+            </button>
+
+            <ReplyInput
+              editData={editCommentData?.text}
+              onSubmit={handleCommentUpdate}
+            />
+          </>
         )}
       </div>
     </div>
