@@ -1,14 +1,13 @@
-import { useParams, useSearchParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import UserComment from "./UserComment";
 import { useGetPost } from "../hooks/usePosts";
 import {
   useCreateComment,
   useDeleteComment,
-  useGetComments,
   useUpdateComment,
 } from "../hooks/useComments";
-import ChatInput from "../../chat/components/ChatInput";
+
 import { useEffect, useState } from "react";
 import CommentThread from "./CommentThread";
 import ReplyInput from "../../chat/components/ReplyInput";
@@ -44,13 +43,14 @@ function Discussion({ users, groups, onProfileOpen }) {
     return <div>error</div>;
   }
 
+  const { comments } = post;
   useEffect(() => {
-    if (commentEditId) {
+    if (commentEditId && comments) {
       const comment = getCommentById(comments, commentEditId);
       if (!comment) return;
       setEditCommentData(comment);
     }
-  }, [commentEditId]);
+  }, [commentEditId, comments]);
 
   const handleCommendEdit = (commentId) => {
     setCommentEditId(commentId);
@@ -101,24 +101,27 @@ function Discussion({ users, groups, onProfileOpen }) {
       setEditCommentData(null);
     },
     onError: (error) => {
-      notifyCommentErr({
-        type: "error",
-        title: "Error",
-        message: error.message,
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-      });
+      notifyCommentErr();
     },
   });
-
+  const notifyCommentSuccess = () => {};
+  const notifyCommentErr = () => {
+    toast({
+      type: "error",
+      title: "Error",
+      message: "comment not updated try again.",
+      status: "error",
+      duration: 5000,
+      isClosable: true,
+    });
+  };
   if (isPostLoading) return <div>Loading...</div>;
   if (isPostError) return <div>Error</div>;
   if (!post) return null;
   //delete  comment
   const deleteCommentMutation = useDeleteComment({
     onSuccess: () => {
-      notifyCommentSuccess({
+      notifyDelCommentSuccess({
         type: "success",
         title: "Success",
         message: "Comment deleted",
@@ -128,18 +131,23 @@ function Discussion({ users, groups, onProfileOpen }) {
       });
     },
     onError: (error) => {
-      notifyCommentErr({
-        type: "error",
-        title: "Error",
-        message: error.message,
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-      });
+      notifyCommentErr();
     },
   });
+  const notifyDelCommentSuccess = () => {
+    toast({
+      type: "success",
+      title: "Success",
+      message: "Comment deleted",
+      status: "success",
+      duration: 5000,
+      isClosable: true,
+    });
+  };
+
   console.log(post);
   const handleCommentDelete = (commentId, postId) => {
+    console.log(commentId, postId);
     if (!commentId || !postId) return;
     deleteCommentMutation.mutate({ commentId, postId });
   };
@@ -174,6 +182,9 @@ function Discussion({ users, groups, onProfileOpen }) {
     };
     console.log(data);
     updateCommentMutation.mutate(payload);
+    setCommentEditId(null);
+    setEditCommentData(null);
+    setParentCommentId(null);
   }
   const handleNestedComment = (id) => {
     setParentCommentId(id);
@@ -182,7 +193,7 @@ function Discussion({ users, groups, onProfileOpen }) {
   // console.log(post);
 
   let groupId = post.groupId;
-  const { comments } = post;
+
   const { text, imgUrl, created, userId } = post;
 
   return (
@@ -219,6 +230,7 @@ function Discussion({ users, groups, onProfileOpen }) {
                 onCommentEdit={handleCommendEdit}
                 onCommentDelete={handleCommentDelete}
                 onNestedComment={handleNestedComment}
+                mode="reply"
               />
             );
           })}

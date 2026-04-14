@@ -17,6 +17,7 @@ import {
   getMonthAndYear,
   getTheTime,
 } from "../../../services/helperFns";
+import { IoArrowForwardCircleSharp } from "react-icons/io5";
 
 // Constants
 const ICON_STYLES = {
@@ -80,10 +81,18 @@ function GroupPost({
   groupId,
   currentUser,
   onProfileOpen,
+  onDeletePost,
+  onEditPost,
 }) {
-  const { id: authorId, avatarUrl } = post?.author?.profile;
+  //  const { id: authorId, avatarUrl } = post?.author?.profile;
+  if (!post?.author || !post) {
+    return <div>Post not found</div>;
+  }
+
+  const { id } = post;
   const { id: postId, text, imgUrl } = post;
-  const { username } = post.author;
+  const { username } = post?.author;
+
   const [hovered, setHovered] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [emoji, setEmoji] = useState(null);
@@ -154,7 +163,13 @@ function GroupPost({
     });
   };
   const notifyRemoveReaction = () => {
-    toast("Reaction removed");
+    toast({
+      title: "Reaction removed",
+      description: "You removed your reaction to this post",
+      status: "success",
+      duration: 5000,
+      isClosable: true,
+    });
   };
 
   const handleAddReaction = (emoji) => {
@@ -178,6 +193,7 @@ function GroupPost({
       setEmoji(reaction);
     }
   };
+
   return (
     <li
       className="flex justify-start items-end gap-3 p-1 w-max max-w-175"
@@ -249,12 +265,20 @@ function GroupPost({
               </div>
             )}
 
-            {menuOpen && <KebabMenu />}
+            {menuOpen && (
+              <KebabMenu
+                onDelete={() => onDeletePost(postId)}
+                onEdit={() => onEditPost(postId)}
+              />
+            )}
 
             {/* Reply/Comment Link */}
             <Link to={`/post/discussion/${postId}?groupId=${groupId}`}>
-              <button aria-label="Reply to post" type="button">
-                <FaReply className={ICON_STYLES.reply} />
+              <button aria-label="Reply to post" title="comments" type="button">
+                <IoArrowForwardCircleSharp
+                  aria-hidden="true"
+                  className={ICON_STYLES.reply}
+                />
               </button>
             </Link>
           </div>

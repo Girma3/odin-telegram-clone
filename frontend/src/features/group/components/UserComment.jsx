@@ -6,6 +6,8 @@ import { CiMenuKebab } from "react-icons/ci";
 import KebabMenu from "../../chat/components/KebabMenu";
 import { Link } from "react-router-dom";
 import { useUpdateComment } from "../hooks/useComments";
+import { IoArrowForwardCircleSharp } from "react-icons/io5";
+
 const iconStyle = `w-4 h-4 fill-pink-400  transition-all duration-300 ease-in-out rounded-full
   hover:fill-green-600 cursor-pointer`;
 const imgStyle = `w-6 h-6 rounded-full shadow-md ring-1 ring-pink-400  object-cover ring-offset-1
@@ -20,6 +22,7 @@ function UserComment({
   onCommentDelete,
   onCommentEdit,
   onNestedComment,
+  mode = "comment",
 }) {
   const { text, created, id: commentId, userId, parentId, postId } = comment;
   const { avatarUrl } = comment?.author?.profile;
@@ -79,20 +82,26 @@ function UserComment({
                 </button>
               </div>
             )}
-
             {menuOpen && (
               <KebabMenu
                 onEdit={() => onCommentEdit(commentId)}
-                onDelete={() => onCommentDelete(commentId)}
+                onDelete={() => onCommentDelete(commentId, postId)}
               />
             )}
 
             <button
-              aria-label="reply"
-              title="reply"
+              aria-label={mode === "reply" ? "reply" : "show comments"}
+              title={mode === "reply" ? "reply" : "show comments"}
               onClick={() => onNestedComment(commentId)}
             >
-              <FaReply aria-hidden="true" className={iconStyle} />
+              {mode === "reply" ? (
+                <FaReply aria-hidden="true" className={iconStyle} />
+              ) : (
+                <IoArrowForwardCircleSharp
+                  aria-hidden="true"
+                  className={iconStyle}
+                />
+              )}
             </button>
           </div>
           {/* Hover reactions */}
