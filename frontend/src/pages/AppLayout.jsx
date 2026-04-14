@@ -1,59 +1,53 @@
-import { BrowserRouter, Router, Route, Routes } from "react-router-dom";
+import { Route, Routes } from "react-router-dom";
 import { useState } from "react";
+
 import { users, groups, notifications, privateChats } from "../data.js";
 
 import IntroPage from "./Intro-page";
-import ChatSingle from "../features/chat/components/ChatSingle";
+import ChatSingle from "../features/chat/components/ChatSingle.jsx";
 import DesktopLayout from "../features/layouts/DeskTopLayout";
 import GroupChat from "../features/group/components/GroupChat";
-
 import Discussion from "../features/group/components/Discussion";
+import RequireAuth from "../features/auth/components/RequireAuth";
+import MobileLayout from "../features/layouts/MobileLayout.jsx";
+import { useAuthContext } from "../features/auth/AuthContext.jsx";
 
 const Auth = () => <IntroPage />;
 
-export default function AppLayout() {
-  //global modal for profile for user or group
+function AppLayout() {
   const [profileState, setProfileState] = useState({
     isOpen: false,
-    type: null, // "user" | "group"
+    type: null,
     user: null,
     group: null,
+    hasGroup: false,
+    userId: null,
     isAdmin: false,
     isSelf: false,
   });
 
+  const { currentUser, isLoading, isSuccess } = useAuthContext();
   const handleCloseModal = () => {
     setProfileState((prev) => ({ ...prev, isOpen: false }));
   };
 
-  const handleProfileOpen = ({
-    type,
-    user,
-    isAdmin = false,
-    isSelf = false,
-    group,
-  }) => {
-    setProfileState({
-      isOpen: true,
-      type,
-      user,
-      isAdmin,
-      isSelf,
-      user,
-      group,
-    });
+  const handleProfileOpen = (payload) => {
+    setProfileState({ isOpen: true, ...payload });
   };
-
+  if (isLoading) return <div>loading...</div>;
+  if (!isSuccess) return <div>error...</div>;
   return (
-    <BrowserRouter>
-      <Routes>
+    <Routes>
+      <Route path="/auth" element={<Auth />} />
+
+      <Route element={<RequireAuth />}>
         <Route
           path="/"
           element={
             <DesktopLayout
               users={users}
               groups={groups}
-              currentUser={users[0]} //change after auth
+              currentUser={currentUser}
               notifications={notifications}
               privateChats={privateChats}
               profileState={profileState}
@@ -68,23 +62,23 @@ export default function AppLayout() {
               <ChatSingle
                 users={users}
                 privateChats={privateChats}
-                currentUser={users[0]}
+                currentUser={currentUser}
               />
             }
-          />{" "}
+          />
+
           <Route
             path="group/:id"
             element={
               <GroupChat
-                groups={groups}
-                users={users}
-                currentUser={users[0]} //change after auth
+                currentUser={currentUser}
                 onProfileOpen={handleProfileOpen}
               />
             }
           />
+
           <Route
-            path="/post/discussion/:id"
+            path="post/discussion/:id"
             element={
               <Discussion
                 groups={groups}
@@ -94,7 +88,9 @@ export default function AppLayout() {
             }
           />
         </Route>
-      </Routes>
-    </BrowserRouter>
+      </Route>
+    </Routes>
   );
 }
+
+export default AppLayout;
