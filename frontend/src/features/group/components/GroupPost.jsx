@@ -100,6 +100,7 @@ function GroupPost({
   // Memoize derived data to avoid recalculation on every render
   const comments = useMemo(() => post.comments || [], [post.comments]);
   const commentCount = useMemo(() => comments.length, [comments]);
+  //console.log(comments);
 
   const commenterUsers = useMemo(() => {
     if (comments.length === 0) return [];
