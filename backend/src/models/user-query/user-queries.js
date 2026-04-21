@@ -68,11 +68,21 @@ async function deleteUserById(userId) {
     throw new Error(error.message, "Failed to delete user");
   }
 }
+async function getAllUsers() {
+  try {
+    const data = await prismaGlobal.user.findMany();
+    return data;
+  } catch (error) {
+    console.log(error);
+    throw new Error(error.message, "Failed to get all users");
+  }
+}
 
 export {
   createUser,
   getUserById,
   getUserByUsername,
   getUserByUserByEmail,
+  getAllUsers,
   deleteUserById,
 };
