@@ -1,16 +1,16 @@
 import { Route, Routes } from "react-router-dom";
 import { useState } from "react";
-
-import { users, groups, notifications, privateChats } from "../data.js";
+import { groups, notifications, privateChats } from "../data.js";
+import { useAuthContext } from "../features/auth/AuthContext.jsx";
+import { UsersProvider } from "../features/private-chat/userContext.jsx";
 
 import IntroPage from "./Intro-page";
-import ChatSingle from "../features/chat/components/ChatSingle.jsx";
+import ChatSingle from "../features/private-chat/components/ChatSingle.jsx";
 import DesktopLayout from "../features/layouts/DeskTopLayout";
-import GroupChat from "../features/group/components/GroupChat";
+import GroupPage from "../features/group/components/GroupPage";
 import Discussion from "../features/group/components/Discussion";
 import RequireAuth from "../features/auth/components/RequireAuth";
 import MobileLayout from "../features/layouts/MobileLayout.jsx";
-import { useAuthContext } from "../features/auth/AuthContext.jsx";
 
 const Auth = () => <IntroPage />;
 
@@ -26,7 +26,24 @@ function AppLayout() {
     isSelf: false,
   });
 
+  /**
+   * 📊 Seed Summary:
+================
+👥 Users: 15
+📝 User Profiles: 15
+🏢 Groups: 3
+📝 Group Profiles: 3
+👤 Group Memberships: 15
+📄 Posts: 15
+💬 Comments: 21
+💬 Nested Comments: 6
+❤️ Reactions: 18
+================
+   */
   const { currentUser, isLoading, isSuccess } = useAuthContext();
+  if (!currentUser && isSuccess) {
+    return <Auth />;
+  }
   const handleCloseModal = () => {
     setProfileState((prev) => ({ ...prev, isOpen: false }));
   };
@@ -36,60 +53,61 @@ function AppLayout() {
   };
   if (isLoading) return <div>loading...</div>;
   if (!isSuccess) return <div>error...</div>;
+
   return (
-    <Routes>
-      <Route path="/auth" element={<Auth />} />
+    <UsersProvider>
+      <Routes>
+        <Route path="/auth" element={<Auth />} />
 
-      <Route element={<RequireAuth />}>
-        <Route
-          path="/"
-          element={
-            <DesktopLayout
-              users={users}
-              groups={groups}
-              currentUser={currentUser}
-              notifications={notifications}
-              privateChats={privateChats}
-              profileState={profileState}
-              onProfileOpen={handleProfileOpen}
-              onCloseModal={handleCloseModal}
-            />
-          }
-        >
+        <Route element={<RequireAuth />}>
           <Route
-            path="chat/:id"
+            path="/"
             element={
-              <ChatSingle
-                users={users}
-                privateChats={privateChats}
-                currentUser={currentUser}
-              />
-            }
-          />
-
-          <Route
-            path="group/:id"
-            element={
-              <GroupChat
-                currentUser={currentUser}
-                onProfileOpen={handleProfileOpen}
-              />
-            }
-          />
-
-          <Route
-            path="post/discussion/:id"
-            element={
-              <Discussion
+              <DesktopLayout
                 groups={groups}
-                users={users}
+                currentUser={currentUser}
+                notifications={notifications}
+                privateChats={privateChats}
+                profileState={profileState}
                 onProfileOpen={handleProfileOpen}
+                onCloseModal={handleCloseModal}
               />
             }
-          />
+          >
+            <Route
+              path="chat/:id"
+              element={
+                <ChatSingle
+                  privateChats={privateChats}
+                  currentUser={currentUser}
+                />
+              }
+            />
+
+            <Route
+              path="group/:id"
+              element={
+                <GroupPage
+                  currentUser={currentUser}
+                  onProfileOpen={handleProfileOpen}
+                />
+              }
+            />
+
+            <Route
+              path="post/discussion/:id"
+              element={
+                <Discussion
+                  currentUser={currentUser}
+                  groups={groups}
+                  onProfileOpen={handleProfileOpen}
+                />
+              }
+            />
+          </Route>
         </Route>
-      </Route>
-    </Routes>
+      </Routes>{" "}
+    </UsersProvider>
   );
 }
 
