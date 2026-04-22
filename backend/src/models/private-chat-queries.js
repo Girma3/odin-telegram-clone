@@ -1,3 +1,4 @@
+import { isDataView } from "util/types";
 import prismaGlobal from "./pool.js";
 
 // Create a new private chat message
@@ -35,7 +36,41 @@ async function createPrivateChat(senderId, receiverId, data = {}) {
     throw new Error(`Failed to create private chat: ${error.message}`);
   }
 }
-
+async function editPrivateChat(chatId, data) {
+  try {
+    const chat = await prismaGlobal.privateChats.update({
+      where: {
+        id: chatId,
+      },
+      data: {
+        text: data.text || null,
+        imgUrl: data.imgUrl || null,
+      },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            profile: true,
+          },
+        },
+        receiver: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            profile: true,
+          },
+        },
+      },
+    });
+    return chat;
+  } catch (error) {
+    console.error(error);
+    throw new Error(`Failed to edit private chat: ${error.message}`);
+  }
+}
 // Get private chat by ID
 async function getPrivateChatById(chatId) {
   try {
@@ -262,9 +297,23 @@ async function getUnreadCount(userId) {
 async function isConversationParticipant(userId1, userId2, checkUserId) {
   return userId1 === checkUserId || userId2 === checkUserId;
 }
-
+async function getChatBySenderUserId(senderId, chatId) {
+  try {
+    const chat = await prismaGlobal.privateChats.findMany({
+      where: {
+        id: chatId,
+        senderId: senderId,
+      },
+    });
+    return chat;
+  } catch (error) {
+    console.error(error);
+    throw new Error(`Failed to get chat: ${error.message}`);
+  }
+}
 export {
   createPrivateChat,
+  editPrivateChat,
   getPrivateChatById,
   getConversation,
   getUserConversations,
@@ -273,4 +322,5 @@ export {
   deletePrivateChat,
   getUnreadCount,
   isConversationParticipant,
+  getChatBySenderUserId,
 };

@@ -10,6 +10,7 @@ import {
   markConversationRead,
   deleteChatHandler,
   getUnreadMessages,
+  editPrivateMessage,
 } from "../controllers/private-chat-controllers/private-post-controller.js";
 
 // Reaction controllers
@@ -61,6 +62,8 @@ privatePostRouter.post("/", sendPrivateMessage);
 
 // Mark single message as read
 privatePostRouter.put("/:chatId/read", markMessageAsRead);
+//edit message
+privatePostRouter.put("/:chatId/edit", editPrivateMessage);
 
 // Delete a private message
 privatePostRouter.delete("/:chatId", deleteChatHandler);

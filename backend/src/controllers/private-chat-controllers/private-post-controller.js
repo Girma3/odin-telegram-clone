@@ -10,11 +10,14 @@ import {
   isConversationParticipant,
 } from "../../models/user-query/private-chat-queries.js";
 import { PrivateChatSchema } from "../../middlewares/validation/schema-validation.js";
+import {
+  editPrivateChat,
+  getChatBySenderUserId,
+} from "../../models/private-chat-queries.js";
 
 // Send a private message
 async function sendPrivateMessage(req, res) {
   const result = PrivateChatSchema.safeParse(req.body);
-
   if (!result.success) {
     return res
       .status(400)
@@ -162,6 +165,16 @@ async function deleteChatHandler(req, res) {
   const userId = req.user.id;
 
   try {
+    const chat = await getPrivateChatById(chatId);
+    if (!chat) {
+      return res.status(404).json({ message: "Chat not found" });
+    }
+
+    if (chat.senderId !== userId && chat.receiverId !== userId) {
+      return res
+        .status(403)
+        .json({ message: "Not authorized to delete this message" });
+    }
     await deletePrivateChat(chatId, userId);
     return res.json({ message: "Message deleted successfully" });
   } catch (error) {
@@ -192,6 +205,40 @@ async function getUnreadMessages(req, res) {
       .json({ message: `Failed to get unread count: ${error.message}` });
   }
 }
+async function editPrivateMessage(req, res) {
+  const { chatId } = req.params;
+  if (!chatId) {
+    return res.status(400).json({ message: "Chat ID is required" });
+  }
+  const result = PrivateChatSchema.safeParse(req.body);
+
+  if (!result.success) {
+    return res
+      .status(400)
+      .json({ message: "Invalid message data", detail: result.error.message });
+  }
+  const userId = req.user.id;
+  try {
+    const isChatOwner = await getChatBySenderUserId(userId, chatId);
+    if (!isChatOwner) {
+      return res
+        .status(403)
+        .json({ message: "Not authorized to edit this message" });
+    }
+    const { text, imgUrl } = result.data;
+    if (!text && !imgUrl) {
+      return res
+        .status(400)
+        .json({ message: "Either text or image is required" });
+    }
+    const chat = await editPrivateChat(chatId, result.data);
+    return res.json(chat);
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: `Failed to edit message: ${error.message}` });
+  }
+}
 
 export {
   sendPrivateMessage,
@@ -202,4 +249,5 @@ export {
   markConversationRead,
   deleteChatHandler,
   getUnreadMessages,
+  editPrivateMessage,
 };
