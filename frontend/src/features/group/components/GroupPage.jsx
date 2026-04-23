@@ -1,7 +1,11 @@
 import { useParams } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import GroupPost from "./GroupPost";
-import { useGetGroup } from "../hooks/useGroups";
+import {
+  useGetGroup,
+  useIsUserAdmin,
+  useIsUserMember,
+} from "../hooks/useGroups";
 import ChatInput from "../../chat/components/ChatInput";
 import {
   useCreatePost,
@@ -13,6 +17,7 @@ import {
 import { useCallback, useMemo, useState } from "react";
 import MemberProfile, { MemberListModal } from "./MemberProfile";
 import MemberList from "./MemberProfile";
+import { useUsers } from "../../private-chat/userContext";
 
 const header = `bg-gray-700 p-4 `;
 const imgStyle = `w-10 h-10 rounded-full shadow-md ring-1 ring-green-300 offset-2`;
@@ -22,188 +27,111 @@ function isUserAdmin(userId, postId) {
 function getPostById(posts, id) {
   return posts.find((post) => post.id === id);
 }
-function GroupPage({ users, currentUser, onProfileOpen }) {
-  let groupId = useParams().id;
-  //get clicked post id and show input with data
+
+function GroupPage({ currentUser, onProfileOpen }) {
+  const groupId = useParams().id;
+
   const [editedPost, setEditedPost] = useState(null);
   const [editedPostData, setEditedPostData] = useState(null);
   const [showMembers, setShowMembers] = useState(false);
-  //memoize the function
-  const onProfileOpenMemo = useCallback(
-    (data) => {
-      onProfileOpen(data);
-    },
-    [onProfileOpen],
-  );
-  //memoize this function
+
   const { data: group, isLoading, isError } = useGetGroup(groupId);
-  const {
-    data: allPosts,
-    isLoading: isPostsLoading,
-    isError: isPostsError,
-    error: postsError,
-  } = useGetGroupPosts(groupId);
+  const { data: allPosts } = useGetGroupPosts(groupId);
+  const { data: isMember } = useIsUserMember(groupId, currentUser?.id);
+  //const { data: userIsAdmin } = useIsUserAdmin(groupId, currentUser?.id);
+  const { data: users } = useUsers();
+
+  const notify = useCallback((type, message) => {
+    toast({
+      type,
+      title: type === "success" ? "Success" : "Error",
+      message,
+      status: type,
+      duration: 5000,
+      isClosable: true,
+    });
+  }, []);
+
   const createNewPostMutation = useCreatePost({
-    onSuccess: () => {
-      notifyCreatePostSuccess();
-    },
-    onError: () => {
-      notifyCreatePostErr();
-    },
+    onSuccess: () => notify("success", "Post created successfully"),
+    onError: () => notify("error", "Failed to create post"),
   });
-  const notifyCreatePostErr = () =>
-    toast({
-      type: "error",
-      title: "Error",
-      message: "Failed to create post",
-      status: "error",
-      duration: 5000,
-      isClosable: true,
-    });
-  const notifyCreatePostSuccess = () =>
-    toast({
-      type: "success",
-      title: "Success",
-      message: "Post created successfully",
-      status: "success",
-      duration: 5000,
-      isClosable: true,
-    });
+
   const deletePostMutation = useDeletePost({
-    onSuccess: () => {
-      notifyDeletePostSuccess();
-    },
-    onError: () => {
-      notifyDeletePostErr();
-    },
+    onSuccess: () => notify("success", "Post deleted successfully"),
+    onError: () => notify("error", "Failed to delete post"),
   });
+
   const editPostMutation = useUpdatePost({
-    onSuccess: () => {
-      notifyEditPostSuccess();
-    },
-    onError: () => {
-      notifyEditPostErr();
-    },
+    onSuccess: () => notify("success", "Post edited successfully"),
+    onError: () => notify("error", "Failed to edit post"),
   });
+  //add join group ,leave group mutation
 
-  const notifyEditPostErr = () =>
-    toast({
-      type: "error",
-      title: "Error",
-      message: "Failed to edit post",
-      status: "error",
-      duration: 5000,
-      isClosable: true,
-    });
-  const notifyEditPostSuccess = () =>
-    toast({
-      type: "success",
-      title: "Success",
-      message: "Post edited successfully",
-      status: "success",
-      duration: 5000,
-      isClosable: true,
-    });
-  const notifyDeletePostErr = () =>
-    toast({
-      type: "error",
-      title: "Error",
-      message: "Failed to delete post",
-      status: "error",
-      duration: 5000,
-      isClosable: true,
-    });
-  const notifyDeletePostSuccess = () =>
-    toast({
-      type: "success",
-      title: "Success",
-      message: "Post deleted successfully",
-      status: "success",
-      duration: 5000,
-      isClosable: true,
-    });
+  const isAdmin = useMemo(
+    () => currentUser.id === group?.ownerId,
+    [currentUser.id, group?.ownerId],
+  );
+  const membersCount = useMemo(() => {
+    if (!group?.members) return "0 members";
+    return group.members.length > 1
+      ? `${group.members.length} members`
+      : `${group.members.length} member`;
+  }, [group?.members]);
 
-  //create post
+  // Handlers (stable)
+  const handleNewPost = useCallback(
+    (data) => {
+      if (!group) return;
+      const payload = { groupId: group.id, ...cleanData(data) };
+      createNewPostMutation.mutate(payload);
+    },
+    [group, createNewPostMutation],
+  );
+
+  const handleDeletePost = useCallback(
+    (id) => {
+      deletePostMutation.mutate(id);
+    },
+    [deletePostMutation],
+  );
+
+  const handleEditPost = useCallback(
+    (id) => {
+      setEditedPost(id);
+      const post = getPostById(allPosts, id);
+      if (post) setEditedPostData(post);
+    },
+    [allPosts],
+  );
+
+  const handleUpdateForm = useCallback(
+    (data) => {
+      if (!data) return;
+      const payload = { postId: editedPostData?.id, ...cleanData(data) };
+      editPostMutation.mutate(payload);
+      setEditedPost(null);
+      setEditedPostData(null);
+    },
+    [editedPostData, editPostMutation],
+  );
 
   if (isLoading) return <div>Loading...</div>;
-  if (isError) return <div>Error</div>;
+  if (isError || !group) return <div>Error</div>;
 
-  const handleNewPost = (data) => {
-    if (!group) return;
-    //remove undefined values
-    Object.keys(data).forEach((key) => {
-      if (data[key] === undefined || data[key] === null) {
-        delete data[key];
-      }
-    });
-    const payload = { groupId: group.id, ...data };
-    console.log(payload);
-    createNewPostMutation.mutate(payload);
-    //createPost(payload);
-  };
-
-  const notifyPostErr = () =>
-    toast({
-      type: "error",
-      title: "Error",
-      message: `${createPostError.message}`,
-    });
-
-  if (!group || group.length === 0) return null;
-  const { id, profile, ownerId, name, members, posts } = group;
+  const { profile, name, members } = group;
   const { avatarUrl } = profile;
-  //get current user to see it's admin to able edit group info
-  let isAdmin = currentUser.id === ownerId;
-  //console.log(members, "members");
-
-  let membersCount = useMemo(
-    () =>
-      members.length > 1
-        ? `${members.length} members`
-        : `${members.length} member`,
-    [members],
-  );
-
-  const handleDeletePost = (id) => {
-    deletePostMutation.mutate(id);
-  };
-
-  const handleEditPost = (id) => {
-    setEditedPost(id);
-    const post = getPostById(allPosts, id);
-    if (post) {
-      setEditedPostData(post);
-    }
-  };
-  const handleUpdateForm = (data) => {
-    if (!data) {
-      return;
-    }
-    //remove undefined values and null
-    Object.keys(data).forEach((key) => {
-      if (data[key] === null || data[key] === undefined) {
-        delete data[key];
-      }
-    });
-    const payload = { postId: editedPostData?.id, ...data };
-
-    editPostMutation.mutate(payload);
-    setEditedPost(null);
-    setEditedPostData(null);
-  };
 
   return (
     <div>
       <div className={header}>
         <button
-          onClick={() =>
-            onProfileOpen({ type: "group", group: group, isAdmin: isAdmin })
-          }
+          onClick={() => onProfileOpen({ type: "group", group, isAdmin })}
           aria-label="show profile"
           title="show group profile"
         >
           <img
-            src={`${avatarUrl}`}
+            src={avatarUrl}
             alt="profile"
             className={imgStyle}
             loading="lazy"
@@ -211,10 +139,9 @@ function GroupPage({ users, currentUser, onProfileOpen }) {
         </button>
 
         <div className="flex flex-col">
-          <p>{name}name</p>
+          <p>{name}</p>
           <button onClick={() => setShowMembers(true)}>
-            Show Members
-            <span>({membersCount})</span>
+            Show Members <span>({membersCount})</span>
           </button>
 
           <MemberListModal
@@ -226,48 +153,54 @@ function GroupPage({ users, currentUser, onProfileOpen }) {
           />
         </div>
       </div>
-      <div></div>
-      <ul className="flex flex-col gap-2 justify-between p-2">
-        {/* pass members not users later */}
-        {allPosts &&
-          allPosts?.map((post) => (
-            <GroupPost
-              key={post.id}
-              post={post}
-              currentUser={currentUser}
-              groupId={groupId}
-              users={users}
-              isAdmin={isUserAdmin(currentUser.id, post.userId)}
-              onProfileOpen={onProfileOpen}
-              onDeletePost={handleDeletePost}
-              onEditPost={handleEditPost}
-            />
-          ))}
-      </ul>
-      {editedPost && (
-        <div>
-          <button
-            onClick={() => {
-              setEditedPost(null);
-              setEditedPostData(null);
-            }}
-          >
-            Cancel edit
-          </button>
-          <ChatInput
-            onSubmit={handleUpdateForm}
-            editData={editedPostData?.text}
-          />
-        </div>
-      )}
 
-      {!editedPost && (
-        <div>
+      <ul className="flex flex-col gap-2 justify-between p-2">
+        {allPosts?.map((post) => (
+          <GroupPost
+            key={post.id}
+            post={post}
+            currentUser={currentUser}
+            groupId={groupId}
+            users={users?.users}
+            isAdmin={isUserAdmin(currentUser.id, post.userId)}
+            onProfileOpen={onProfileOpen}
+            onDeletePost={handleDeletePost}
+            onEditPost={handleEditPost}
+          />
+        ))}
+      </ul>
+      {!isMember?.member && <button>Join Group</button>}
+
+      {isAdmin &&
+        (editedPost ? (
+          <div>
+            <button
+              onClick={() => {
+                setEditedPost(null);
+                setEditedPostData(null);
+              }}
+            >
+              Cancel edit
+            </button>
+            <ChatInput
+              onSubmit={handleUpdateForm}
+              editData={editedPostData?.text}
+            />
+          </div>
+        ) : (
           <ChatInput onSubmit={handleNewPost} />
-        </div>
-      )}
+        ))}
     </div>
   );
+}
+
+// Utility: remove null/undefined
+function cleanData(data) {
+  const copy = { ...data };
+  Object.keys(copy).forEach((key) => {
+    if (copy[key] == null) delete copy[key];
+  });
+  return copy;
 }
 
 export default GroupPage;
