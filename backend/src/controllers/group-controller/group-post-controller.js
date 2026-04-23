@@ -13,7 +13,7 @@ import {
 } from "../../models/group-query/group-queries.js";
 import { PostSchema } from "../../middlewares/validation/schema-validation.js";
 
-// Create a new post for a group
+// Create a new post for a groups
 async function createNewPostForGroup(req, res) {
   const result = PostSchema.safeParse(req.body);
 
@@ -25,7 +25,9 @@ async function createNewPostForGroup(req, res) {
   let userId = req.user.id;
 
   if (!userId || !result.data.groupId) {
-    return res.status(400).json({ message: "Unauthorized to post" });
+    return res
+      .status(400)
+      .json({ message: "Unauthorized to post without userId and groupId" });
   }
 
   const { text, imgUrl, groupId } = result.data;
@@ -76,6 +78,10 @@ async function getPost(req, res) {
 // Get posts by group
 async function getGroupPosts(req, res) {
   const { groupId } = req.params;
+
+  if (!groupId) {
+    return res.status(400).json({ message: "Group ID is required" });
+  }
 
   try {
     const posts = await getPostsByGroupId(groupId);

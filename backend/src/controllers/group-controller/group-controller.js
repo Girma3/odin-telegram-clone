@@ -13,7 +13,9 @@ import {
   isGroupMember,
   isGroupOwner,
   getUserGroupsCount,
+  getGroupByUserId,
 } from "../../models/group-query/group-queries.js";
+import { updateProfile } from "../../models/user-query/profile-query.js";
 
 // Create a new group
 async function createNewGroup(req, res) {
@@ -55,6 +57,7 @@ async function getGroup(req, res) {
 
   try {
     const group = await getGroupById(groupId);
+
     if (!group) {
       return res.status(404).json({ message: "Group not found" });
     }
@@ -66,7 +69,22 @@ async function getGroup(req, res) {
       .json({ message: `Failed to get group: ${error.message}` });
   }
 }
-
+//get by user id
+async function getGroupByUserIdController(req, res) {
+  const { userId } = req.params;
+  try {
+    const group = await getGroupByUserId(userId);
+    if (!group) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+    return res.json(group);
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .json({ message: `Failed to get group: ${error.message}` });
+  }
+}
 // Get group by name
 async function getGroupByGroupName(req, res) {
   const { name } = req.params;
@@ -101,11 +119,15 @@ async function getAllGroupsHandler(req, res) {
 // Update group
 async function updateGroupHandler(req, res) {
   const { groupId } = req.params;
-  const { name, bio, avatarUrl, location, website } = req.body;
+  const userId = req.user.id;
 
+  if (!groupId || !userId) {
+    return res.status(400).json({ message: "group and user id required!" });
+  }
+  const { name, bio, avatarUrl, location, website } = req.body;
   try {
     // Check if user is the owner
-    const isOwner = await isGroupOwner(groupId, req.user.id);
+    const isOwner = await isGroupOwner(groupId, userId);
     if (!isOwner) {
       return res
         .status(403)
@@ -127,9 +149,10 @@ async function updateGroupHandler(req, res) {
       const group = await getGroupById(groupId);
       if (group?.profile) {
         // Update existing profile
-        const { updateProfile } =
-          await import("../../models/user-query/profile-query.js");
-        await updateProfile(group.profile.id, profileUpdates);
+        const updatedProfile = await updateProfile(
+          group.profile.id,
+          profileUpdates,
+        );
       }
     }
 
@@ -312,10 +335,38 @@ async function leaveGroup(req, res) {
       .json({ message: `Failed to leave group: ${error.message}` });
   }
 }
+async function isUserAdmin(req, res) {
+  const { groupId } = req.params;
+  const { userId } = req.query;
+  if (!groupId || !userId) {
+    return res.status(400).json({ message: "user and group id required!" });
+  }
+  try {
+    const admin = await isGroupOwner(groupId, userId);
+    return res.status(200).json({ admin: admin });
+    return admin;
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to check admin" });
+  }
+}
+async function isUserGroupMember(req, res) {
+  const { groupId } = req.params;
+  const { userId } = req.query;
+  if (!groupId || !userId) {
+    return res.status(400).json({ message: "user and group id required!" });
+  }
+  try {
+    const member = await isGroupMember(groupId, userId);
+    return res.status(200).json({ member: member });
+  } catch (error) {
+    return res.status(500).json({ message: "failed to check user is member!" });
+  }
+}
 
 export {
   createNewGroup,
   getGroup,
+  getGroupByUserIdController,
   getGroupByGroupName,
   getAllGroupsHandler,
   updateGroupHandler,
@@ -326,4 +377,6 @@ export {
   getPosts,
   joinGroup,
   leaveGroup,
+  isUserAdmin,
+  isUserGroupMember,
 };
