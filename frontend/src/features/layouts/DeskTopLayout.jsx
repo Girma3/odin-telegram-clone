@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Outlet } from "react-router-dom";
 import SideBarOverlay from "./SideBarOverlay";
 import { searchHolder, searchInput } from "./MobileLayout";
@@ -8,6 +8,9 @@ import UserChat from "../chat/components/UserChat";
 import ChatInput from "../chat/components/ChatInput";
 import GroupSingle from "../group/components/GroupSingle";
 import ProfileModal from "../profile/components/ProfileModal";
+import { useGetAllUsers } from "../private-chat/hooks/useUser";
+import { useGetAllGroups } from "../group/hooks/useGroups";
+import { useGetProfileByUser } from "../profile/hooks/useProfile";
 
 const container = `w-full h-full overflow-y-scroll
   grid grid-cols-[var(--sidebar-width)_8px_minmax(300px,1fr)] text-amber-50 
@@ -33,29 +36,51 @@ const sideOverlay = `
 
 //accept array of objects
 function DesktopLayout({
-  users,
-  groups,
   currentUser,
-
   privateChats,
   notifications,
   profileState,
   onProfileOpen,
   onCloseModal,
 }) {
+  if (!currentUser) return null;
+  const { id, username } = currentUser;
+  const {
+    data: users,
+    isSuccess: isAllUsersSuccess,
+    isLoading: isLoadingUsers,
+  } = useGetAllUsers();
+  const {
+    data: groups,
+    isLoading: isLoadingGroups,
+    isSuccess: isAllGroupsSuccess,
+  } = useGetAllGroups();
+  if (isLoadingUsers || isLoadingGroups) {
+    return (
+      <div className="flex items-center justify-center h-screen text-white">
+        Loading...
+      </div>
+    );
+  }
+
   const [sidebarWidth, setSidebarWidth] = useState(400);
   const [dragging, setDragging] = useState(false);
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { data: profile } = useGetProfileByUser(id);
 
-  const hasGroup = groups
-    .map((g) => g.ownerId === currentUser.id)
-    .includes(true);
-  const profile = { ...currentUser.profile, username: currentUser.username };
-  let group = null;
-  hasGroup
-    ? (group = groups.find((g) => g.ownerId === currentUser.id))
-    : (group = null);
+  const handleCloseSidebar = useCallback(() => {
+    setSidebarOpen(false);
+  }, []);
+
+  const hasGroup = useMemo(() => {
+    return groups.map((g) => g.ownerId === id).includes(true);
+  }, [groups, id]);
+
+  let group = useMemo(() => {
+    if (!groups) return null;
+    return groups.find((g) => g.ownerId === id);
+  }, [groups, id]);
 
   const containerRef = useRef(null);
 
@@ -142,14 +167,14 @@ function DesktopLayout({
               </button>
             </div>
             <div className="p-4 text-white transition-all duration-200 hover:p-3">
-              {users.length > 0 && (
+              {users?.users.length > 0 && (
                 <h2 className="text-lg font-semibold mb-4">Users</h2>
               )}
-              {users.length > 0 && (
+              {users.users?.length > 0 && (
                 <ul className="flex flex-col justify-between gap-2">
-                  {users.map((user, i) => (
+                  {users?.users.map((user) => (
                     <UserChat
-                      key={i + 1}
+                      key={user.id}
                       user={user}
                       privateChats={privateChats}
                       currentUser={currentUser}
@@ -157,10 +182,10 @@ function DesktopLayout({
                   ))}
                 </ul>
               )}
-              {groups.length > 0 && (
+              {groups?.length > 0 && (
                 <h2 className="text-lg font-semibold mb-4">Groups</h2>
               )}
-              {groups.length > 0 && (
+              {groups?.length > 0 && (
                 <ul className="flex flex-col justify-between gap-2">
                   {groups.map((group, i) => (
                     <GroupSingle key={i + 1} group={group} />
@@ -181,11 +206,11 @@ function DesktopLayout({
                 </button>
                 <SideBarOverlay
                   hasGroup={hasGroup}
-                  user={user}
-                  avatarUrl={profile.avatarUrl}
-                  username={profile.username}
+                  user={currentUser}
+                  profile={profile}
                   group={group}
                   onProfileOpen={onProfileOpen}
+                  onCloseSelf={handleCloseSidebar}
                 />
               </div>
             </div>
@@ -214,10 +239,6 @@ function DesktopLayout({
           </div>
         </main>
       </div>
-
-      <footer className="fixed bottom-0  right-0 w-[calc(100%-var(--sidebar-width))] ">
-        <ChatInput />
-      </footer>
     </>
   );
 }
