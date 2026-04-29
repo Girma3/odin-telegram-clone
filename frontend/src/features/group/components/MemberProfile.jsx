@@ -11,7 +11,8 @@ const MemberItem = React.memo(function MemberItem({
   onProfileOpen,
   currentUser,
 }) {
-  const { data: profile, isSuccess } = useGetProfileByUser(member?.userId);
+  const { id: userId, username } = member?.user || {};
+  const { data: profile, isSuccess } = useGetProfileByUser(userId);
   if (!isSuccess) return <li className="animate-pulse">Loading...</li>;
   return (
     <li
@@ -19,7 +20,9 @@ const MemberItem = React.memo(function MemberItem({
       onClick={() =>
         onProfileOpen({
           type: "user",
-          user: profile,
+          user: member.user,
+          profile: profile,
+          username: username,
           isSelf: currentUser === profile?.userId,
         })
       }
@@ -30,7 +33,12 @@ const MemberItem = React.memo(function MemberItem({
           {member?.username}
         </span>
         <span className="text-stone-400 text-xs">
-          {profile?.bio?.slice(0, 30) || profile?.location || "No info"}
+          {profile?.bio?.slice(0, 32) + " ..." ||
+            profile?.location ||
+            "No info"}
+        </span>
+        <span className="text-green-800 text-xs">
+          {profile?.groupId ? "admin" : null}
         </span>
       </div>
     </li>
@@ -46,7 +54,6 @@ function MemberListModal({
 }) {
   const listRef = useRef(null);
   const [headerText, setHeaderText] = useState("Group members");
-
   useEffect(() => {
     const handleScroll = () => {
       setHeaderText(

@@ -19,6 +19,8 @@ function AppLayout() {
     isOpen: false,
     type: null,
     user: null,
+    profile: null,
+    username: null,
     group: null,
     hasGroup: false,
     userId: null,
@@ -41,6 +43,7 @@ function AppLayout() {
 ================
    */
   const { currentUser, isLoading, isSuccess } = useAuthContext();
+
   if (!currentUser && isSuccess) {
     return <Auth />;
   }
@@ -78,8 +81,8 @@ function AppLayout() {
               path="chat/:id"
               element={
                 <ChatSingle
-                  privateChats={privateChats}
                   currentUser={currentUser}
+                  onProfileOpen={handleProfileOpen}
                 />
               }
             />

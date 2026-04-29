@@ -1,249 +1,258 @@
-import { useRef, useState } from "react";
-import { MdDownloadForOffline } from "react-icons/md";
+import { useRef, useState, useMemo, useCallback } from "react";
 import { MdModeEdit } from "react-icons/md";
 import { IoMdCloseCircle } from "react-icons/io";
 import { RiImageEditFill } from "react-icons/ri";
 import { useForm } from "react-hook-form";
+import { toast } from "react-toastify";
 
 import { ProfileCardStyle } from "../../../styles.js";
 import ProfileForm from "./ProfileForm.jsx";
 import Modal from "./Modal.jsx";
+import ImageUploader from "../../chat/components/ImageUploader.jsx";
 
-import {
-  useCreateProfile,
-  useUpdateProfile,
-  useGetProfile,
-  useGetProfileByUser,
-} from "../hooks/useProfile.js";
+import { useUpdateProfile, useGetProfileByUser } from "../hooks/useProfile.js";
+import { useNavigate } from "react-router-dom";
 
-const labelStyle = `font-semibold text-xs text-amber-200 tracking-wide mb-1`;
-const infoStyle = `text-xs text-stone-300 [text-shadow:0_0_12px_rgba(59,130,246,1]`;
-const iconStyle = `  transition-all duration-200 cursor-pointer`;
+const LABEL_STYLE = `font-semibold text-xs text-amber-200 tracking-wide mb-1`;
+const INFO_STYLE = `text-xs text-stone-300 [text-shadow:0_0_12px_rgba(59,130,246,1)]`;
+const ICON_STYLE = `transition-all duration-200 cursor-pointer`;
 
-//accept flag to show edit button if user is logged in
-function ProfileCard({ isSelf, user, onClose }) {
+function ProfileCard({ isSelf, user, profile, username, onClose }) {
   const [showPreview, setShowPreview] = useState(false);
   const [editing, setEditing] = useState(false);
-  //console.log(user);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef(null);
+  const navigate = useNavigate();
 
-  const { data, isError, isLoading } = useGetProfileByUser(user?.id);
-  //if user is new user, create profile
+  if (!user) return null;
+  const { id, username: currentUsername } = user;
 
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
-  if (isError) {
-    return <div>Error</div>;
-  }
+  let profileData = useMemo(
+    () => ({
+      avatarUrl: profile?.avatarUrl,
+      bio: profile?.bio,
+      location: profile?.location,
+      website: profile?.website,
+    }),
+    [profile?.avatarUrl, profile?.bio, profile?.location, profile?.website],
+  );
 
-  const profile = {
-    avatarUrl: data?.avatarUrl,
-    bio: data?.bio,
-    location: data?.location,
-    website: data?.website,
-  };
-  // form to create or update
-  const { register, handleSubmit, formState, setValue } = useForm({
+  const isProfileEmpty = useMemo(() => {
+    const { avatarUrl, bio, location, website } = profileData;
+    return !avatarUrl && !bio && !location && !website;
+  }, [profileData]);
+
+  profileData =
+    isProfileEmpty && username ? useGetProfileByUser(id)?.data : profileData;
+  console.log(username, currentUsername);
+  const methods = useForm({
     defaultValues: {
-      name: user?.username || "",
-      bio: profile?.bio || "",
-      location: profile?.location || "",
-      website: profile?.website || "",
+      username: username || currentUsername || "",
+      bio: profileData?.bio || "",
+      location: profileData?.location || "",
+      website: profileData?.website || "",
+    },
+  });
+  const { reset } = methods;
+
+  const updateProfileMutation = useUpdateProfile({
+    onSuccess: () => {
+      toast.success("Profile updated successfully");
+      setEditing(false);
+      reset();
+      onClose?.();
+    },
+    onError: () => {
+      toast.error("Failed to update profile. Please try again.");
     },
   });
 
-  const { errors } = formState;
-  const {
-    mutate: createProfileMutate,
-    data: createProfile,
-    isLoading: createProfileLoading,
-    isError: createProfileError,
-    error: createProfileErrorMessage,
-    reset: createProfileReset,
-  } = useCreateProfile();
-  const {
-    mutate: updateProfileMutate,
-    data: updateProfile,
-    isLoading: updateProfileLoading,
-    isError: updateProfileError,
-    error: updateProfileErrorMessage,
-    reset: updateProfileReset,
-  } = useUpdateProfile();
-  const handleUpdateSubmit = (data) => {
-    const payload = { ...data, userId: user.id };
-    updateProfileMutate(payload);
-  };
-  const handleCreateSubmit = (data) => {
-    const payload = { ...data, userId: user.id };
-    createProfileMutate(payload);
-  };
+  const handleUpdateSubmit = useCallback(
+    async (formData) => {
+      const payload = {
+        userId: id,
+        username: formData.username?.trim() || username,
+        avatarUrl: formData.avatarUrl?.trim() || null,
+        bio: formData.bio?.trim() || null,
+        location: formData.location?.trim() || null,
+        website: formData.website?.trim() || null,
+      };
+      //remove empty fields
+      Object.keys(payload).forEach((key) => {
+        if (payload[key] == null) {
+          delete payload[key];
+        }
+      });
 
-  const fileInputRef = useRef(null);
-  const { avatarUrl, bio, location, website } = profile;
-  const isProfileEmpty = Object.values(profile).every(
-    (value) => value == null || value === "",
+      updateProfileMutation.mutate({ profileId: profileData.id, ...payload });
+    },
+    [id, updateProfileMutation],
   );
 
-  //if user just new show form
-  if (user && isProfileEmpty) {
+  const handleSendMessage = useCallback(() => {
+    navigate(`/chat/${id}`);
+    onClose?.();
+  }, [navigate, id, onClose]);
+
+  const handleClose = useCallback(() => {
+    onClose?.();
+    reset();
+    setEditing(false);
+  }, [onClose, reset]);
+
+  const handleEditProfile = useCallback(() => setEditing(true), []);
+
+  const handleImageUpload = useCallback(async (file) => {
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      // Upload logic here - implement based on your API
+      console.log("Uploading avatar:", file);
+      toast.info("Avatar upload feature coming soon");
+    } catch (error) {
+      toast.error("Failed to upload image");
+    } finally {
+      setIsUploading(false);
+    }
+  }, []);
+
+  // Show form for new profiles
+  if (isProfileEmpty && isSelf) {
     return (
-      <>
-        <h1 className="text-center text-shadow-fuchsia-200">Edit Profile</h1>
+      <div className="w-full">
+        <button onClick={() => onClose()}>Close</button>
+        <h1 className="text-center text-shadow-fuchsia-200 mb-4">
+          Edit Profile at first
+        </h1>
         <ProfileForm
-          user={user}
-          register={register}
-          errors={errors}
-          onSubmit={handleCreateSubmit}
-          handleSubmit={handleSubmit}
+          user={profileData}
+          onSubmit={handleUpdateSubmit}
+          methods={methods}
         />
-      </>
+      </div>
     );
   }
-
-  const handleButtonClick = () => {
-    fileInputRef.current.click(); // programmatically open file picker
-  };
-
-  const handleFileChange = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      console.log("Selected file:", file);
-      // upload it
-    }
-  };
-  const handleEditProfile = () => setEditing(true);
 
   return (
     <div
       className={`flex flex-col items-center relative ${ProfileCardStyle}text-stone-300`}
     >
-      <div>
+      <div className="w-full">
         {showPreview && (
-          <Modal isOpen={showPreview}>
-            <div className="bg-slate-800 flex flex-col items-center  p-2">
+          <Modal isOpen={showPreview} onClose={() => setShowPreview(false)}>
+            <div className="bg-slate-800 flex flex-col items-center p-4 rounded-lg">
               <button
-                className="relative left-[45%] text-yellow-200"
                 onClick={() => setShowPreview(false)}
-                about="close image preview"
+                aria-label="Close image preview"
+                className="absolute top-2 right-2 text-yellow-200 hover:text-red-500 transition-colors"
               >
-                <IoMdCloseCircle
-                  aria-hidden="true"
-                  className={`fill-yellow-200 hover:fill-red-600 ${iconStyle}`}
-                />
+                <IoMdCloseCircle className="w-6 h-6 fill-current" />
               </button>
-
               <img
-                src={`${avatarUrl}`}
-                alt="profile"
-                className=" w-full h-full w-max-[80%] h-max-[80%] object-cover rounded-sm"
+                src={profileData.avatarUrl}
+                alt={`${username}'s profile`}
+                className="w-full max-w-[90%] h-auto max-h-[80vh] object-contain rounded-sm"
               />
-
-              <button
-                className=" relative left-[30%] "
-                aria-label="download image"
-                title="Download image"
-              >
-                <MdDownloadForOffline
-                  aria-hidden="true"
-                  className={`fill-yellow-200  hover:fill-green-400 ${iconStyle}`}
-                />
-              </button>
             </div>
           </Modal>
         )}
+
         {!editing && (
           <>
-            <div className="relative -top-5 -right-10 flex justify-end w-full gap-2 p-0.5 ">
-              {" "}
+            <div className="relative -top-4 flex justify-end gap-2 p-2">
+              {isSelf && (
+                <button
+                  onClick={handleEditProfile}
+                  aria-label="Edit profile"
+                  title="Edit profile"
+                  className="p-1.5 rounded-full hover:bg-blue-500/20 transition-colors"
+                >
+                  <MdModeEdit className="w-5 h-5 text-yellow-200 hover:text-green-400" />
+                </button>
+              )}
               <button
-                aria-label="edit profile "
-                title="edit profile"
-                onClick={handleEditProfile}
+                onClick={handleClose}
+                aria-label="Close profile"
+                className="p-1.5 rounded-full hover:bg-red-500/20 transition-colors"
               >
-                <MdModeEdit
-                  aria-hidden="true"
-                  className={`fill-yellow-200 hover:fill-green-400 ${iconStyle}`}
-                />
-              </button>
-              <button onClick={onClose} aria-label="close profile modal">
-                <IoMdCloseCircle
-                  aria-hidden="true"
-                  className={`fill-yellow-200 hover:fill-red-600 ${iconStyle}`}
-                />
+                <IoMdCloseCircle className="w-5 h-5 text-yellow-200 hover:text-red-500" />
               </button>
             </div>
-            <div className="relative w-max">
-              {/* profile image */}
-              <button
-                onClick={() => setShowPreview(true)}
-                aria-label="preview profile picture"
-                title="click to Preview image"
-              >
-                <img
-                  src={`${avatarUrl}`}
-                  alt="profile"
-                  className="rounded-full w-20 h-20 object-cover ring-1 ring-green-500 ring-offset-1"
-                />
-              </button>
-              {/* upload image button */}
-              <button
-                className="absolute bottom-2 -right-1 z-10 "
-                aria-label="upload-profile-picture"
-                title="upload profile image"
-                onClick={handleButtonClick}
-              >
-                <RiImageEditFill
-                  aria-hidden="true"
-                  className={` fill-green-400 hover:fill-yellow-500 ${iconStyle}`}
-                />
-              </button>
-              <input
-                type="file"
-                accept="image/*"
-                name="userPic"
-                id="userPic"
-                ref={fileInputRef}
-                hidden
-                onChange={handleFileChange}
-              />
+
+            <div className="relative flex flex-col items-center">
+              <div className="relative">
+                <button
+                  onClick={() => setShowPreview(true)}
+                  aria-label="Preview profile picture"
+                  className="focus:outline-none"
+                >
+                  <img
+                    src={profileData.avatarUrl}
+                    alt={`${username}'s profile`}
+                    className="rounded-full w-20 h-20 object-cover ring-2 ring-green-500 ring-offset-2"
+                  />
+                </button>
+                {isSelf && (
+                  <div className="absolute -bottom-1 -right-1">
+                    <ImageUploader
+                      onUpload={handleImageUpload}
+                      isUploading={isUploading}
+                      className="w-7 h-7"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </>
         )}
+
+        {isSelf && editing && (
+          <div className="w-full">
+            <button
+              onClick={() => {
+                setEditing(false);
+                reset();
+              }}
+              aria-label="Cancel editing"
+              className="absolute top-2 right-2 p-1.5 rounded-full hover:bg-red-500/20 transition-colors"
+            >
+              <IoMdCloseCircle className="w-5 h-5 text-yellow-200 hover:text-red-500" />
+            </button>
+            <h1 className="text-center text-shadow-indigo-100 mb-4">
+              Edit Profile
+            </h1>
+            <ProfileForm methods={methods} onSubmit={handleUpdateSubmit} />
+          </div>
+        )}
+
+        {!editing && (
+          <div className="flex flex-col items-start w-full mt-4">
+            <InfoItem label="Username" value={username} />
+            <InfoItem label="Bio" value={profileData.bio} />
+            <InfoItem label="Location" value={profileData.location} />
+            <InfoItem label="Website" value={profileData.website} />
+            {!isSelf && (
+              <button
+                onClick={handleSendMessage}
+                className="mt-4 w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition-colors font-medium"
+              >
+                Send Message
+              </button>
+            )}
+          </div>
+        )}
       </div>
+    </div>
+  );
+}
 
-      {isSelf && editing && (
-        <>
-          <button
-            onClick={() => setEditing(false)}
-            aria-label="close edit form "
-            className="absolute top-0 right-0"
-          >
-            <IoMdCloseCircle
-              aria-hidden="true"
-              className={`fill-yellow-200 hover:fill-red-600 ${iconStyle}`}
-            />
-          </button>
-          <h1 className="text-center text-shadow-indigo-100">Edit Profile</h1>
-          <ProfileForm
-            user={user}
-            register={register}
-            handleSubmit={handleSubmit}
-            errors={errors}
-            onSubmit={handleUpdateSubmit}
-          />
-        </>
-      )}
-
-      {user && !editing && (
-        <div className="flex flex-col items-start">
-          <p className={labelStyle}>Bio</p>
-          <p className={infoStyle}>{bio}</p>
-          <p className={labelStyle}>Location</p>
-          <p className={infoStyle}>{location}</p>
-          <p className={labelStyle}>website</p>
-          <p className={infoStyle}>{website}</p>
-        </div>
-      )}
+function InfoItem({ label, value }) {
+  if (!value) return null;
+  return (
+    <div className="flex flex-col mb-3">
+      <span className={LABEL_STYLE}>{label}</span>
+      <span className={INFO_STYLE}>{value}</span>
     </div>
   );
 }
