@@ -5,6 +5,9 @@ import {
   useGetGroup,
   useIsUserAdmin,
   useIsUserMember,
+  useGetMembers,
+  useJoinGroup,
+  useLeaveGroup,
 } from "../hooks/useGroups";
 import ChatInput from "../../chat/components/ChatInput";
 import {
@@ -19,8 +22,10 @@ import MemberProfile, { MemberListModal } from "./MemberProfile";
 import MemberList from "./MemberProfile";
 import { useUsers } from "../../private-chat/userContext";
 
-const header = `bg-gray-700 p-4 `;
+const header = `flex gap-4 p-2 bg-gray-700 px-2 `;
 const imgStyle = `w-10 h-10 rounded-full shadow-md ring-1 ring-green-300 offset-2`;
+const joinButton = `px-4 m-auto absolute left-1/2 bottom-0  py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition`;
+const leaveButton = `px-4 m-auto  py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition`;
 function isUserAdmin(userId, postId) {
   return userId === postId;
 }
@@ -38,9 +43,7 @@ function GroupPage({ currentUser, onProfileOpen }) {
   const { data: group, isLoading, isError } = useGetGroup(groupId);
   const { data: allPosts } = useGetGroupPosts(groupId);
   const { data: isMember } = useIsUserMember(groupId, currentUser?.id);
-  //const { data: userIsAdmin } = useIsUserAdmin(groupId, currentUser?.id);
-  const { data: users } = useUsers();
-
+  const isOwner = group?.ownerId === currentUser?.id;
   const notify = useCallback((type, message) => {
     toast({
       type,
@@ -67,7 +70,14 @@ function GroupPage({ currentUser, onProfileOpen }) {
     onError: () => notify("error", "Failed to edit post"),
   });
   //add join group ,leave group mutation
-
+  const joinGroupMutation = useJoinGroup({
+    onSuccess: () => notify("success", "Joined group successfully"),
+    onError: () => notify("error", "Failed to join group"),
+  });
+  const leaveGroupMutation = useLeaveGroup({
+    onSuccess: () => notify("success", "Left group successfully"),
+    onError: () => notify("error", "Failed to leave group"),
+  });
   const isAdmin = useMemo(
     () => currentUser.id === group?.ownerId,
     [currentUser.id, group?.ownerId],
@@ -115,15 +125,24 @@ function GroupPage({ currentUser, onProfileOpen }) {
     },
     [editedPostData, editPostMutation],
   );
+  const handleJoinGroup = useCallback(() => {
+    if (!group) return;
+    joinGroupMutation.mutate(group.id);
+  }, [group, joinGroupMutation]);
 
+  const handleLeaveGroup = useCallback(() => {
+    if (!group) return;
+    leaveGroupMutation.mutate(group.id);
+  }, [group, leaveGroupMutation]);
   if (isLoading) return <div>Loading...</div>;
   if (isError || !group) return <div>Error</div>;
 
   const { profile, name, members } = group;
   const { avatarUrl } = profile;
+  const isGroupMember = isMember?.member;
 
   return (
-    <div>
+    <div className="flex flex-col relative overflow-y-scroll h-full">
       <div className={header}>
         <button
           onClick={() => onProfileOpen({ type: "group", group, isAdmin })}
@@ -140,8 +159,8 @@ function GroupPage({ currentUser, onProfileOpen }) {
 
         <div className="flex flex-col">
           <p>{name}</p>
-          <button onClick={() => setShowMembers(true)}>
-            Show Members <span>({membersCount})</span>
+          <button onClick={() => setShowMembers(true)} title="show members">
+            Members <span>({membersCount})</span>
           </button>
 
           <MemberListModal
@@ -152,6 +171,16 @@ function GroupPage({ currentUser, onProfileOpen }) {
             onProfileOpen={onProfileOpen}
           />
         </div>
+        {isGroupMember && !isOwner && (
+          <button className={leaveButton} onClick={handleLeaveGroup}>
+            Leave Group
+          </button>
+        )}
+        {isOwner && (
+          <button className={leaveButton} onClick={handleLeaveGroup}>
+            Delete Group
+          </button>
+        )}
       </div>
 
       <ul className="flex flex-col gap-2 justify-between p-2">
@@ -161,7 +190,8 @@ function GroupPage({ currentUser, onProfileOpen }) {
             post={post}
             currentUser={currentUser}
             groupId={groupId}
-            users={users?.users}
+            isMember={isGroupMember}
+            users={members}
             isAdmin={isUserAdmin(currentUser.id, post.userId)}
             onProfileOpen={onProfileOpen}
             onDeletePost={handleDeletePost}
@@ -169,11 +199,16 @@ function GroupPage({ currentUser, onProfileOpen }) {
           />
         ))}
       </ul>
-      {!isMember?.member && <button>Join Group</button>}
+      {!isGroupMember && (
+        <button className={joinButton} onClick={handleJoinGroup}>
+          Join Group
+        </button>
+      )}
 
       {isAdmin &&
+        isGroupMember &&
         (editedPost ? (
-          <div>
+          <div className="absolute bottom-0">
             <button
               onClick={() => {
                 setEditedPost(null);
