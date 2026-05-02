@@ -284,25 +284,29 @@ async function getPosts(req, res) {
 // Join group (current user joins)
 async function joinGroup(req, res) {
   const { groupId } = req.params;
+  const userId = req.user.id;
+  if (!groupId || !userId) {
+    return res.status(400).json({ message: "group and user id required!" });
+  }
 
   try {
     // Check if already a member
-    const isMember = await isGroupMember(groupId, req.user.id);
+    const isMember = await isGroupMember(groupId, userId);
     if (isMember) {
       return res
         .status(400)
         .json({ message: "Already a member of this group" });
     }
 
-    // Check if user is the owner
-    const isOwner = await isGroupOwner(groupId, req.user.id);
+    // check if user is the owner
+    const isOwner = await isGroupOwner(groupId, userId);
     if (isOwner) {
       return res
         .status(400)
         .json({ message: "You are the owner of this group" });
     }
 
-    const member = await addMember(groupId, req.user.id);
+    const member = await addMember(groupId, userId);
     return res.status(201).json(member);
   } catch (error) {
     console.error(error);
@@ -315,18 +319,25 @@ async function joinGroup(req, res) {
 // Leave group (current user leaves)
 async function leaveGroup(req, res) {
   const { groupId } = req.params;
-
+  const userId = req.user.id;
+  if (!groupId || !userId) {
+    return res.status(400).json({ message: "group and user id required!" });
+  }
   try {
-    // Check if user is the owner
-    const isOwner = await isGroupOwner(groupId, req.user.id);
+    // check if user is the owner
+    const isOwner = await isGroupOwner(groupId, userId);
     if (isOwner) {
       return res.status(400).json({
         message:
           "Group owner cannot leave. Transfer ownership or delete the group instead.",
       });
     }
-
-    await removeMember(groupId, req.user.id);
+    const removedMember = await removeMember(groupId, userId);
+    if (!removedMember) {
+      return res
+        .status(400)
+        .json({ message: "failed to remove member from group." });
+    }
     return res.json({ message: "Successfully left the group" });
   } catch (error) {
     console.error(error);
