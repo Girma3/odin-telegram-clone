@@ -1,16 +1,18 @@
 import { useEffect } from "react";
-import { connect, on, token } from "../wsClient";
+import { on } from "../wsClient";
+import useWebSocket from "./useWebsocket";
 
 function useWebSocketEvent(eventType, handler) {
+  const ws = useWebSocket();
+  if (!ws) return null;
   useEffect(() => {
-    const ws = connect(token);
     on(eventType, handler);
 
-    // optional cleanup: remove handler if you want
+    // optional cleanup if you have an unsubscribe function
     return () => {
-      // naive cleanup: not removing handler here, but you could implement unsubscribe
+      // ws.off(eventType, handler) if your lib supports it
     };
-  }, [token, eventType, handler]);
+  }, [ws, eventType, handler]);
 }
 
 export default useWebSocketEvent;
