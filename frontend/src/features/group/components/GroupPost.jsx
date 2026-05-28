@@ -1,90 +1,33 @@
-import { useState, useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import { toast, ToastContainer } from "react-toastify";
-import { CiMenuKebab } from "react-icons/ci";
 import { Link } from "react-router-dom";
-import { IoArrowForwardCircleSharp } from "react-icons/io5";
-import { MdOutlineKeyboardArrowRight } from "react-icons/md";
 import { FaRegMessage } from "react-icons/fa6";
-import {
-  useGetReactions,
-  useAddReaction,
-  useDeleteReaction,
-} from "../hooks/useReaction";
-import { useGetProfileByUser } from "../../profile/hooks/useProfile";
-import { chatHolderStyle } from "./PostByUser";
+import { MdOutlineKeyboardArrowRight } from "react-icons/md";
+import { useAddReaction, useDeleteReaction } from "../hooks/useReaction";
+import CommenterAvatars from "./CommenterAvatars";
+import KebabDropdown from "./KebabDropdown";
 import Reaction from "../../chat/Reaction";
-import KebabMenu from "../../chat/components/KebabMenu";
-import {
-  formatDate,
-  getMonthAndYear,
-  getTheTime,
-} from "../../../services/helperFns";
-import CommenterUser from "./CommenterUser";
+import { getTheTime } from "../../../services/helperFns";
 
-// Constants
 const ICON_STYLES = {
-  link: `w-8 h-8 fill-pink-400 transition-all duration-300 ease-in-out rounded-full hover:fill-white cursor-pointer`,
-  kebab: `w-6 h-6 fill-pink-300 hover:fill-green-400`,
+  link: `w-8 h-8 fill-white transition-all duration-300 ease-in-out rounded-full hover:fill-amber-400 cursor-pointer`,
+  kebab: `w-6 h-6 fill-white  hover:fill-black transition-all duration-300 ease-in-out   `,
 };
 const IMAGE_STYLES = {
   post: `min-w-6 h-60 rounded-2 shadow-md object-cover ring-1 ring-pink-400`,
-  commenter: `w-8 h-8 rounded-full object-cover border-2 ring-gray-600 ring-1 border-gray-700`,
+  commenter: `w-8 h-8 rounded-full  object-cover border border-black 
+  bg-gradient-to-t from- black to-blue-600`,
 };
 
-// Helper function to get commenter image with error handling
-function getCommenterUser(users, comment) {
-  if (!comment || !users) return null;
-  const user = users.find((u) => u.userId === comment.userId);
-  if (!user) return null;
-  const { id, username } = user?.user;
-  return user;
-}
-
-// Helper function to format comment count
 function formatCommentCount(count) {
-  if (count === 0) return "No comments";
+  if (count === 0) return "Leave Comment";
   if (count === 1) return "1 comment";
   return `${count} comments`;
 }
 
-// Component for displaying commenter profile images
-function CommenterImage({ index, onProfileOpen, user }) {
-  if (!user) return null;
-  const { id, username } = user;
-  const { data: profile, isSuccess, isLoading } = useGetProfileByUser(id);
-  if (!isSuccess && !isLoading) return null;
-  const handleClick = () => {
-    if (onProfileOpen && user) {
-      onProfileOpen({ type: "user", user: user, profile: profile });
-    }
-  };
-
-  const imgUrl = profile?.avatarUrl;
-
-  return (
-    <button
-      key={username + index}
-      aria-label={`View ${username || "user"}'s profile`}
-      className="w-12"
-      onClick={handleClick}
-      title={`${username || "User"}'s profile`}
-      type="button"
-    >
-      <img
-        src={imgUrl}
-        alt={`${username || "User"}'s profile`}
-        className={`${IMAGE_STYLES.commenter} ${index > 0 ? "-ml-5" : ""}`}
-        loading="lazy"
-      />
-    </button>
-  );
-}
-
-// Main GroupPost component
 function GroupPost({
-  users,
+  groupMembers = [],
   post,
-  isAdmin = false,
   isMember = false,
   groupId,
   currentUser,
@@ -92,278 +35,223 @@ function GroupPost({
   onDeletePost,
   onEditPost,
 }) {
-  //  const { id: authorId, avatarUrl } = post?.author?.profile;
-  if (!post?.author || !post) {
-    return <div>Post not found</div>;
-  }
+  if (!post?.author) return null;
+  const { id: postId, imgUrl } = post;
 
-  const { id } = post;
-  const { id: postId, text, imgUrl } = post;
-  const { username } = post?.author;
-
-  const [hovered, setHovered] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [emoji, setEmoji] = useState(null);
-
-  // Memoize derived data to avoid recalculation on every render
+  const isUserAuthor = currentUser?.id === post.userId;
   const comments = useMemo(() => post.comments || [], [post.comments]);
-  const commentCount = useMemo(() => comments.length, [comments]);
-  //console.log(comments);
-
-  const commenterUsersArr = () => {
-    if (comments.length === 0) return [];
-    const removeDuplicate = new Set(
-      users.filter((user) =>
-        comments.some((comment) => comment.userId === user.userId),
-      ),
-    );
-    const uniqueUsers = Array.from(removeDuplicate);
-    //slice at max 3 if it has
-    let max = uniqueUsers.length > 3 ? 3 : uniqueUsers.length;
-    const sliceComments = comments.slice(0, max);
-    return sliceComments
-      .map((comment) => getCommenterUser(uniqueUsers, comment))
-      .filter(Boolean);
-  };
-  const commenterUsers = commenterUsersArr();
-  //console.log(commenterUsers);
   const reactions = useMemo(() => post.reactions || [], [post.reactions]);
-  const handleMenuToggle = () => {
-    setMenuOpen((prev) => !prev);
-  };
+  const alreadyReactedToPost = useMemo(() => {
+    return reactions.some((reaction) => reaction.userId === currentUser.id);
+  }, [reactions, currentUser?.id]);
 
-  const handleMouseLeave = () => {
-    setHovered(false);
-    setMenuOpen(false);
-  };
+  // Toast Helper
+  const triggerToast = useCallback((title, desc, status = "info") => {
+    const content = (
+      <div>
+        <strong>{title}</strong>
+        {desc && <div>{desc}</div>}
+      </div>
+    );
 
-  const handleImageDownload = () => {
-    if (imgUrl) {
-      const link = document.createElement("a");
-      link.href = imgUrl;
-      link.download = `post-${id}-image`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
-  };
-  //add reaction to post
-  const addReactionMutation = useAddReaction({
-    onSuccess: () => {
-      notifyAddReaction();
-    },
-    onError: () => {
-      toast("Error adding reaction");
-    },
-  });
-  //remove reaction to post
-  const removeReactionMutation = useDeleteReaction({
-    onSuccess: () => {
-      notifyRemoveReaction();
-    },
-    onError: () => {
-      toast({
-        title: "Error removing reaction",
-        description: "Please try again",
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-      });
-    },
-  });
-  const notifyAddReaction = () => {
-    toast({
-      title: "Reaction added",
-      description: "You reacted to this post",
-      status: "success",
-      duration: 5000,
-      isClosable: true,
-    });
-  };
-  const notifyRemoveReaction = () => {
-    toast({
-      title: "Reaction removed",
-      description: "You removed your reaction to this post",
-      status: "success",
-      duration: 5000,
-      isClosable: true,
-    });
-  };
+    // Use a deterministic ID based on the title to deduplicate triggers
+    const uniqueId = `toast-${title.replace(/\s+/g, "-").toLowerCase()}`;
 
-  const handleAddReaction = (emoji) => {
-    if (!isMember)
-      return toast({
-        title: "Join the group to react",
-        description: "You need to be a member of the group to react to posts",
-        status: "info",
-        duration: 5000,
-        isClosable: true,
-      });
-    addReactionMutation.mutate({
+    const toastOptions = {
+      toastId: uniqueId, // 🔑 FIX: Prevents duplicate renders
+      position: "top-right",
+      autoClose: 5000,
+      closeOnClick: true, // This will now work properly
+      pauseOnHover: true,
+      draggable: true,
+      hideProgressBar: false,
+    };
+
+    const toastFn =
+      {
+        success: toast.success,
+        error: toast.error,
+        info: toast.info,
+      }[status] ?? toast.info;
+
+    // REMOVED: toast.dismiss() here was killing event handlers prematurely
+
+    toastFn(content, toastOptions);
+  }, []);
+
+  // API Mutations
+  const addReactionMutation = useAddReaction();
+
+  const removeReactionMutation = useDeleteReaction();
+
+  // Action Toggles with explicit membership validations
+  const handleToggleReaction = useCallback(
+    (emoji, hasReacted) => {
+      if (!isMember) {
+        return triggerToast(
+          "Join group",
+          "You must be a group member to interact",
+          "info",
+        );
+      }
+      if (hasReacted) {
+        removeReactionMutation.mutate(
+          { postId, emoji },
+          {
+            onSuccess: () => triggerToast("Reaction removed", "", "success"),
+            onError: () =>
+              triggerToast("Error", "Failed to remove reaction", "error"),
+          },
+        );
+      } else {
+        addReactionMutation.mutate(
+          { postId, emoji },
+          {
+            onSuccess: () => triggerToast("Reaction added", "", "success"),
+            onError: () =>
+              triggerToast("Error", "Failed to add reaction", "error"),
+          },
+        );
+      }
+    },
+    [
+      isMember,
       postId,
-      emoji,
-    });
-  };
-  const handleRemoveReaction = (emoji) => {
-    if (!isMember)
-      return toast({
-        title: "Join the group to remove reaction",
-        description:
-          "You need to be a member of the group to remove reactions from posts",
-        status: "info",
-        duration: 5000,
-        isClosable: true,
-      });
-    removeReactionMutation.mutate({
-      postId,
-      emoji,
-    });
-  };
-  const handleReaction = (reaction) => {
-    if (!isMember)
-      return toast({
-        title: "Join the group to react",
-        description: "You need to be a member of the group to react to posts",
-        status: "info",
-        duration: 5000,
-        isClosable: true,
-      });
-    if (emoji === reaction) {
-      handleRemoveReaction(reaction);
-      setEmoji(null);
-    } else {
-      handleAddReaction(reaction);
-      setEmoji(reaction);
-    }
-  };
+      addReactionMutation,
+      removeReactionMutation,
+      triggerToast,
+    ],
+  );
+  const activeReactions = useMemo(() => {
+    const countsMap = reactions.reduce((acc, reaction) => {
+      const emoji = reaction.emoji;
+
+      if (!acc[emoji]) {
+        acc[emoji] = {
+          emoji: emoji,
+          count: 0,
+          userIds: [],
+        };
+      }
+
+      acc[emoji].count += 1;
+      acc[emoji].userIds.push(reaction.userId);
+
+      return acc;
+    }, {});
+
+    return Object.values(countsMap);
+  }, [reactions]);
 
   return (
-    <li
-      className="flex  justify-start items-end gap-3 p-1 w-max max-w-175"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={handleMouseLeave}
-    >
-      <div className={chatHolderStyle}>
-        {/* Post Image */}
-        {imgUrl && (
-          <button
-            onClick={handleImageDownload}
-            aria-label="Download post image"
-            title="Download post image"
-          >
-            <img
-              src={imgUrl}
-              alt="Post content"
-              className={IMAGE_STYLES.post}
-              loading="lazy"
-            />
-          </button>
+    <div className="group/post max-w-xl group relative flex flex-col gap-3 bg-zinc-900 border border-zinc-800 rounded-2xl p-4 shadow-md">
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        closeOnClick
+        pauseOnHover
+        draggable
+        hideProgressBar={false}
+      />
+
+      {/* BODY SECTION: Post Text / Render Images */}
+      {post.text && <p className="text-sm text-zinc-300 p-1">{post.text}</p>}
+      {imgUrl && (
+        <img
+          src={imgUrl}
+          alt="Post asset"
+          className="w-full h-60 rounded-xl object-cover ring-1 ring-zinc-700/50 shadow"
+          loading="lazy"
+        />
+      )}
+      {/* REACTIONS SECTION: Displays on hover, with toggle logic */}
+
+      <div className="absolute -right-6 bottom-0 hidden group-hover:block">
+        {isMember && !isUserAuthor && !alreadyReactedToPost && (
+          <Reaction onSelect={handleToggleReaction} />
         )}
+      </div>
 
-        {/* Post Text */}
-        {text && <p className="text-sm">{text}</p>}
-        <div className=" flex justify-between items-center py-2">
-          {/* Post Actions and Metadata */}
-          <div className="flex justify-between items-center relative p-3">
-            {/* Commenter's and Comment Count */}
-            <div className="flex items-center w-max justify-baseline mx-4 h-3">
-              {reactions.length > 0 &&
-                reactions.map((reaction) => (
-                  <button
-                    key={reaction.id}
-                    className="text-sm text-gray-600 mr-1"
-                    aria-label={`Reacted with ${reaction.emoji}`}
-                    title={`${currentUser.id === reaction.userId ? "You Reacted with " + reaction.emoji : ""}`}
-                    type="button"
-                  >
-                    {reaction.emoji}
-                  </button>
-                ))}
+      <div className="flex gap-2 items-center">
+        {activeReactions.map((reaction) => {
+          // Check if the current logged-in user is in this emoji's user list
+          const hasUserReacted = reaction.userIds.includes(currentUser.id);
 
-              <ToastContainer />
-              {/* Admin Kebab Menu */}
-              {isAdmin && hovered && (
-                <div className="ml-2">
-                  <button
-                    aria-label="Open post menu"
-                    onClick={handleMenuToggle}
-                    type="button"
-                  >
-                    <CiMenuKebab className={ICON_STYLES.kebab} />
-                  </button>
-                </div>
-              )}
-
-              {menuOpen && (
-                <KebabMenu
-                  onDelete={() => onDeletePost(postId)}
-                  onEdit={() => onEditPost(postId)}
-                />
-              )}
-            </div>
-
-            {/* Reaction Button (non-admin only) */}
-            {!isAdmin && hovered && (
-              <div>
-                <Reaction onSelect={handleReaction} />
-              </div>
-            )}
-          </div>
-
-          {/* Post Metadata (Author and Timestamp) */}
-          {post?.created && (
-            <div className="flex justify-end items-center gap-2 text-sm text-gray-500">
-              {username && (
-                <span key={username} className="font-medium">
-                  {username}
-                </span>
-              )}
-              <time className="flex flex-col" dateTime={post.created}>
-                <p>{getMonthAndYear(post.created)}</p>
-                <p>{getTheTime(post.created)}</p>
-              </time>
-            </div>
-          )}
-        </div>
-        <hr className="p-px border-none bg-linear-to-r from-green-700 to-amber-400 to-red-600" />
-
-        <div className="flex justify-between items-center mt-2">
-          <div className="flex items-center ">
-            {comments.length > 0 &&
-              commenterUsers.map((commenter, index) => (
-                <CommenterImage
-                  key={commenter.user.id + index}
-                  index={index}
-                  user={commenter.user}
-                  onProfileOpen={onProfileOpen}
-                />
-              ))}
-            <div className="flex items-center  text-sm">
-              <FaRegMessage className="fill-green-50 mx-2" />
-              <p>
-                {commentCount >= 1
-                  ? `${commentCount} comments`
-                  : `${commentCount} comment`}
-                {commentCount === 0 && "Leave comment"}
-              </p>
-            </div>{" "}
-          </div>
-          <Link to={`/post/discussion/${postId}?groupId=${groupId}`}>
+          return (
             <button
-              aria-label="Go to post discussion"
-              title="Go to post discussion"
+              key={reaction.emoji} // Use emoji as the unique key now
+              className={`flex gap-1 items-center  p-1 rounded ${isUserAuthor ? "bg-gray-900" : ""}`}
+              title={`${hasUserReacted ? "Remove" : "Add"} reaction ${reaction.emoji}`}
+              aria-label={`${hasUserReacted ? "Remove" : "Add"} reaction ${reaction.emoji}`}
+              onClick={() =>
+                handleToggleReaction(reaction.emoji, hasUserReacted)
+              }
+              disabled={!isMember || isUserAuthor}
             >
-              {" "}
-              <MdOutlineKeyboardArrowRight
-                aria-hidden="true"
-                className={ICON_STYLES.link}
-              />
+              <span
+                className={`  ${hasUserReacted ? "bg-blue-500 " : " "}px-1 rounded-sm hover:scale-110 transition-transform duration-200`}
+              >
+                {reaction.emoji}
+              </span>
+              <span className="text-xs font-bold">{reaction.count}</span>{" "}
             </button>
-          </Link>
+          );
+        })}{" "}
+      </div>
+      {/* author , time and menu */}
+      <div className="flex gap-2 text-xs text-zinc-400  justify-end items-center w-full">
+        <div>
+          <span className=" font-semibold  px-2">{post.author.username}</span>
+          <time>{getTheTime(post.created)}</time>
+        </div>
+        <KebabDropdown
+          isUserAuthor={isUserAuthor}
+          postId={postId}
+          onEditPost={onEditPost}
+          onDeletePost={onDeletePost}
+        />
+      </div>
+      <hr className="p-px border-none bg-linear-to-r from-green-700 to-amber-400 to-red-600" />
+
+      {/* FOOTER LINK BLOCK PATTERN: Entire Row leads to Discussion Channel */}
+      <div
+        className="group/link relative flex
+           justify-between items-center p-2 rounded-xl
+            bg-zinc-800/40 hover:bg-zinc-800 border border-zinc-800
+             hover:border-zinc-700/80 transition-all focus-within:ring-2 focus-within:ring-blue-500"
+      >
+        <Link
+          to={`/post/discussion/${postId}?groupId=${groupId}`}
+          state={{ groupMembers, postData: post }}
+          className="absolute inset-0 z-0 rounded-xl"
+          aria-label="View discussion"
+        />
+
+        <div
+          className="flex items-center gap-3 relative"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <CommenterAvatars
+            comments={comments}
+            groupMembers={groupMembers}
+            onProfileOpen={onProfileOpen}
+          />
+          <div className=" group flex  items-center text-xs sm:text-sm font-medium text-zinc-400 group-hover/link:text-blue-400 transition-colors">
+            {comments.length === 0 && (
+              <FaRegMessage className="mr-2 text-zinc-500 group-hover:fill-amber-300  " />
+            )}
+            <p className="px-2">{formatCommentCount(comments.length)}</p>
+          </div>
+        </div>
+
+        <div
+          aria-hidden="true"
+          className="p-1 text-zinc-500 group-hover/link:text-zinc-200 group-hover/link:translate-x-1 transition-all"
+        >
+          <MdOutlineKeyboardArrowRight className="w-6 h-6 group-hover:fill-zinc-300 " />
         </div>
       </div>
-    </li>
+    </div>
   );
 }
-
 export default GroupPost;
