@@ -105,7 +105,7 @@ function useUpdateProfile(options = {}) {
       options.onError?.(err, updatedProfile, context);
     },
     onSuccess: (result, variables, context) => {
-      const profile = result?.profile;
+      const profile = result;
       if (profile) {
         queryClient.setQueryData(profileKey(profile.id), profile);
       }
@@ -150,4 +150,7 @@ export {
   useCreateProfile,
   useUpdateProfile,
   useDeleteProfile,
+  profileKey,
+  profilesKey,
+  profileByUserKey,
 };

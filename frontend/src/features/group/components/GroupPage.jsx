@@ -144,7 +144,7 @@ function GroupPage({ currentUser, onProfileOpen }) {
     },
     [deletePostMutation],
   );
-  console.log(allPosts);
+
   const handleEditPost = useCallback(
     (postId) => {
       setEditedPost(postId);
