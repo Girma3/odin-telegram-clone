@@ -109,6 +109,7 @@ function useUpdateProfile(options = {}) {
       if (profile) {
         queryClient.setQueryData(profileKey(profile.id), profile);
       }
+      queryClient.invalidateQueries(profilesKey);
       options.onSuccess?.(result, variables, context);
     },
     onSettled: () => {
