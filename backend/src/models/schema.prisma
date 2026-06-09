@@ -10,8 +10,9 @@ model User {
     id        String   @id @default(uuid())
     username  String
     email     String   @unique
-    status    Status   @default(ONLINE)
+    status    Status   @default(OFFLINE)
     createdAt DateTime @default(now())
+    isDeleted Boolean  @default(false)
     profile   Profile?
 
     // Group Relations
@@ -57,10 +58,10 @@ model Profile {
 
     //user relations
     userId  String? @unique
-    user    User?   @relation(fields: [userId], references: [id])
+    user    User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
     //group relations
     groupId String? @unique
-    group   Groups? @relation(fields: [groupId], references: [id])
+    group   Groups? @relation(fields: [groupId], references: [id], onDelete: Cascade)
 }
 
 model GroupMembers {
@@ -68,10 +69,10 @@ model GroupMembers {
     created DateTime @default(now())
 
     groupId String
-    group   Groups @relation(fields: [groupId], references: [id])
+    group   Groups @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
     userId String
-    user   User   @relation(fields: [userId], references: [id])
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
     @@unique([userId, groupId]) // Prevents a user joining the same group twice
 }
@@ -83,10 +84,10 @@ model Posts {
     created DateTime @default(now())
 
     userId String
-    author User   @relation(fields: [userId], references: [id])
+    author User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
     groupId String
-    group   Groups @relation(fields: [groupId], references: [id])
+    group   Groups @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
     comments      Comments[]
     reactions     Reactions[]
@@ -99,10 +100,10 @@ model Comments {
     created DateTime @default(now())
 
     postId String
-    post   Posts  @relation(fields: [postId], references: [id])
+    post   Posts  @relation(fields: [postId], references: [id], onDelete: Cascade)
 
     userId String
-    author User   @relation(fields: [userId], references: [id])
+    author User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
     // Threading logic: Comments can have replies
     parentId      String?
@@ -119,10 +120,10 @@ model PrivateChats {
     created DateTime @default(now())
 
     senderId String
-    sender   User   @relation("SentMessages", fields: [senderId], references: [id])
+    sender   User   @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
 
     receiverId    String
-    receiver      User            @relation("ReceivedMessages", fields: [receiverId], references: [id])
+    receiver      User            @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
     notifications Notifications[]
     reactions     Reactions[]
 }
@@ -133,13 +134,13 @@ model Reactions {
     created DateTime @default(now())
 
     postId String?
-    post   Posts?  @relation(fields: [postId], references: [id])
+    post   Posts?  @relation(fields: [postId], references: [id], onDelete: Cascade)
 
     chatId String?
-    chat   PrivateChats? @relation(fields: [chatId], references: [id])
+    chat   PrivateChats? @relation(fields: [chatId], references: [id], onDelete: Cascade)
 
     userId        String
-    user          User            @relation(fields: [userId], references: [id])
+    user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
     notifications Notifications[]
 
     @@unique([userId, postId]) // one reaction per user per post
@@ -155,30 +156,30 @@ model Notifications {
 
     // Who triggered the notification (the sender of the action)
     senderId   String?
-    sender     User?   @relation("NotificationSender", fields: [senderId], references: [id])
+    sender     User?   @relation("NotificationSender", fields: [senderId], references: [id], onDelete: SetNull)
     // Who received the notification (the receiver)
     receiverId String?
-    receiver   User?   @relation("NotificationRecipient", fields: [receiverId], references: [id])
+    receiver   User?   @relation("NotificationRecipient", fields: [receiverId], references: [id], onDelete: SetNull)
 
     // Activity references (always tied back to a Post if group-related)
     postId String?
-    post   Posts?  @relation(fields: [postId], references: [id])
+    post   Posts?  @relation(fields: [postId], references: [id], onDelete: Cascade)
 
     commentId String?
-    comment   Comments? @relation(fields: [commentId], references: [id])
+    comment   Comments? @relation(fields: [commentId], references: [id], onDelete: Cascade)
 
     reactionId String?
-    reaction   Reactions? @relation(fields: [reactionId], references: [id])
+    reaction   Reactions? @relation(fields: [reactionId], references: [id], onDelete: Cascade)
 
     chatId String?
-    chat   PrivateChats? @relation(fields: [chatId], references: [id])
+    chat   PrivateChats? @relation(fields: [chatId], references: [id], onDelete: Cascade)
 }
 
 model RefreshToken {
     id        String   @id @default(uuid())
     token     String   @unique
     userId    String   @unique
-    user      User     @relation(fields: [userId], references: [id])
+    user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
     createdAt DateTime @default(now())
     expiresAt DateTime
 
