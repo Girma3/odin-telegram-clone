@@ -98,7 +98,6 @@ const login = async ({ username, email }) => {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, email }),
   });
-
   const data = await response.json();
   if (!response.ok) throw new Error(data.message || "Login failed");
 
@@ -112,11 +111,10 @@ const signup = async ({ username, email }) => {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, email }),
   });
-
   const data = await response.json();
-  if (!response.ok) throw new Error(data.message || "Signup failed");
 
-  setTokens(data);
+  if (!response.ok) throw new Error(data.message || "Signup failed");
+  await setTokens(data);
   return data;
 };
 
@@ -139,7 +137,6 @@ const getCurrentUser = async () => {
   const res = await fetchWithAuth(`${apiUrl}/auth/protected`, {
     method: "GET",
   });
-
   if (!res.ok) return { user: null };
 
   return res.json();
@@ -154,5 +151,6 @@ export {
   setTokens,
   getAccessToken,
   getRefreshToken,
+  refreshAccessToken,
   fetchWithAuth,
 };

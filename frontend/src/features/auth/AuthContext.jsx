@@ -1,5 +1,6 @@
 import { useContext, createContext } from "react";
 import { useGetCurrentUser } from "./hooks/useAuth.js";
+
 const AuthContext = createContext(null);
 function AuthProvider({ children }) {
   const {
@@ -8,9 +9,6 @@ function AuthProvider({ children }) {
     isError,
     isSuccess,
   } = useGetCurrentUser();
-
-  if (isLoading) return <div>Loading...</div>;
-  if (isError) return <div>Error</div>;
 
   const value = { currentUser, isLoading, isError, isSuccess };
 
