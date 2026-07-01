@@ -4,6 +4,7 @@ import {
   getUserByUserByEmail,
   getAllUsers,
   deleteUserById,
+  updateUserPresenceStatus,
 } from "../models/user-query/user-queries.js";
 
 async function getUserByIdController(req, res) {
@@ -109,12 +110,14 @@ async function deleteUserByIdController(req, res) {
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
+    //chain delete for user profile,post,comment,group...
     const removedUser = await deleteUserById(userId);
     if (!removedUser) {
       return res
         .status(404)
         .json({ message: "User not found or already deleted" });
     }
+
     return res
       .status(200)
       .json({ message: "User deleted successfully", removedUser });
@@ -124,11 +127,35 @@ async function deleteUserByIdController(req, res) {
       .json({ message: `Failed to delete user: ${error.message}` });
   }
 }
-
+//update presence status by id
+async function updatePresenceStatusController(req, res) {
+  const { userId } = req.params;
+  const { status } = req.body;
+  if (!userId) {
+    return res
+      .status(400)
+      .json({ message: "User ID is required to update presence status" });
+  }
+  try {
+    const user = await getUserById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    const updatedUser = await updateUserPresenceStatus(userId, status);
+    return res
+      .status(200)
+      .json({ message: "Presence status updated", updatedUser });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: `Failed to update presence status: ${error.message}` });
+  }
+}
 export {
   getUserByIdController,
   getUserByUsernameController,
   getUserByEmailController,
   getAllUsersController,
   deleteUserByIdController,
+  updatePresenceStatusController,
 };
