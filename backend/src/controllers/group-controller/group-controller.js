@@ -14,6 +14,7 @@ import {
   isGroupOwner,
   getUserGroupsCount,
   getGroupByUserId,
+  softDeleteGroup,
 } from "../../models/group-query/group-queries.js";
 import { updateProfile } from "../../models/user-query/profile-query.js";
 
@@ -170,6 +171,33 @@ async function updateGroupHandler(req, res) {
 }
 
 // Delete group
+async function softDeleteGroupHandler(req, res) {
+  const { groupId } = req.params;
+
+  try {
+    const group = await getGroupById(groupId);
+    if (!group) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+    if (group.isDeleted) {
+      return res.status(400).json({ message: "Group already deleted" });
+    }
+    // Check if user is the owner
+    const isOwner = await isGroupOwner(groupId, req.user.id);
+    if (!isOwner) {
+      return res
+        .status(403)
+        .json({ message: "Only group owner can delete the group" });
+    }
+    const removeGroup = await softDeleteGroup(groupId);
+    return res.json({ message: "Group deleted successfully", removeGroup });
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .json({ message: `Failed to delete group: ${error.message}` });
+  }
+}
 async function deleteGroupHandler(req, res) {
   const { groupId } = req.params;
 
@@ -381,6 +409,7 @@ export {
   getGroupByGroupName,
   getAllGroupsHandler,
   updateGroupHandler,
+  softDeleteGroupHandler,
   deleteGroupHandler,
   addMemberToGroup,
   removeMemberFromGroup,
