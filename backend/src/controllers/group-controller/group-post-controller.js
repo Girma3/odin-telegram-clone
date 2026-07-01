@@ -8,6 +8,7 @@ import {
   deletePost,
 } from "../../models/group-query/group-post-queries.js";
 import {
+  getGroupById,
   isGroupMember,
   isGroupOwner,
 } from "../../models/group-query/group-queries.js";
@@ -29,7 +30,6 @@ async function createNewPostForGroup(req, res) {
       .status(400)
       .json({ message: "Unauthorized to post without userId and groupId" });
   }
-
   const { text, imgUrl, groupId } = result.data;
   if (!text && !imgUrl) {
     return res
@@ -38,6 +38,15 @@ async function createNewPostForGroup(req, res) {
   }
 
   try {
+    const group = await getGroupById(groupId);
+    if (!group) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+    if (group?.isDeleted) {
+      return res
+        .status(404)
+        .json({ message: "Group has been deleted and it is not active." });
+    }
     const isMember = await isGroupMember(groupId, userId);
     const isOwner = await isGroupOwner(groupId, userId);
 
