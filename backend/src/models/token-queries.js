@@ -36,5 +36,33 @@ async function deleteTokenByUserId(userId) {
     throw new Error(`Failed to delete token: ${error.message}`);
   }
 }
+async function getTokenByToken(token) {
+  try {
+    const data = await prismaGlobal.refreshToken.findUnique({
+      where: { token },
+    });
+    return data;
+  } catch (error) {
+    console.error(error);
+    throw new Error(`Failed to get token by token: ${error.message}`);
+  }
+}
+async function deleteTokenByToken(token) {
+  try {
+    const data = await prismaGlobal.refreshToken.delete({
+      where: { token },
+    });
+    return data;
+  } catch (error) {
+    console.error(error);
+    throw new Error(`Failed to delete token by token: ${error.message}`);
+  }
+}
 
-export { saveRefreshToken, getTokenByUserId, deleteTokenByUserId };
+export {
+  saveRefreshToken,
+  getTokenByUserId,
+  getTokenByToken,
+  deleteTokenByToken,
+  deleteTokenByUserId,
+};

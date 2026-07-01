@@ -5,11 +5,16 @@ const uuidRegex =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 // Robust URL validation regex (supports http, https, and common URL formats)
-const urlRegex = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([\/\w .-]*)*\/?$/i;
+const urlRegex =
+  /^(https?:\/\/)?([a-zA-Z0-9_.-]+)\.([a-zA-Z]{2,12})(\/[^\s]*)?$/;
 
 const UUID_SCHEMA = z.string().regex(uuidRegex, "Invalid UUID format");
-const URL_SCHEMA = z.string().regex(urlRegex, "Invalid URL format").optional();
-
+const URL_SCHEMA = z
+  .string()
+  .trim()
+  .regex(urlRegex, "Invalid website format")
+  .optional()
+  .or(z.literal(""));
 // User schema
 const UserSchema = z.object({
   //id: UUID_SCHEMA,
@@ -63,7 +68,7 @@ const PrivateChatSchema = z.object({
   text: z.string().optional(),
   imgUrl: URL_SCHEMA.optional(),
   read: z.boolean().default(false),
-  senderId: UUID_SCHEMA.optional(),
+  senderId: UUID_SCHEMA,
   receiverId: UUID_SCHEMA,
 });
 
