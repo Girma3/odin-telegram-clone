@@ -125,8 +125,12 @@ async function getGroupByName(name) {
 
 // Get all groups
 async function getAllGroups() {
+  //get active group only
   try {
     const groups = await prismaGlobal.groups.findMany({
+      where: {
+        isDeleted: false,
+      },
       include: {
         profile: true,
         owner: {
@@ -213,7 +217,23 @@ async function deleteGroup(groupId) {
     throw new Error(`Failed to delete group: ${error.message}`);
   }
 }
-
+async function softDeleteGroup(groupId) {
+  try {
+    const group = await prismaGlobal.groups.update({
+      where: {
+        id: groupId,
+      },
+      data: {
+        isDeleted: true,
+        deletedAt: new Date(),
+      },
+    });
+    return group;
+  } catch (error) {
+    console.error(error);
+    throw new Error(`Failed to soft delete group: ${error.message}`);
+  }
+}
 // Add member to group
 async function addMember(groupId, userId) {
   try {
@@ -433,6 +453,7 @@ export {
   getGroupByName,
   getAllGroups,
   updateGroup,
+  softDeleteGroup,
   deleteGroup,
   addMember,
   removeMember,

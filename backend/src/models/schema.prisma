@@ -37,6 +37,8 @@ model Groups {
     name      String   @unique
     profile   Profile?
     createdAt DateTime @default(now())
+    isDeleted Boolean  @default(false)
+    deletedAt DateTime?
 
     ownerId String
     owner   User   @relation("GroupOwner", fields: [ownerId], references: [id])
