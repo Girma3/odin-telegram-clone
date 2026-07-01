@@ -29,13 +29,16 @@ function GroupPost({
   groupMembers = [],
   post,
   isMember = false,
+  isGroupActive,
   groupId,
   currentUser,
   onProfileOpen,
   onDeletePost,
   onEditPost,
+  index,
 }) {
   if (!post?.author) return null;
+  if (post?.author?.isDeleted) return null;
   const { id: postId, imgUrl } = post;
 
   const isUserAuthor = currentUser?.id === post.userId;
@@ -44,6 +47,10 @@ function GroupPost({
   const alreadyReactedToPost = useMemo(() => {
     return reactions.some((reaction) => reaction.userId === currentUser.id);
   }, [reactions, currentUser?.id]);
+  //remove deleted comment for count and comment avatars only
+  const filteredComments = useMemo(() =>
+    comments.filter((comment) => !comment.author.isDeleted),
+  );
 
   // Toast Helper
   const triggerToast = useCallback((title, desc, status = "info") => {
@@ -74,19 +81,16 @@ function GroupPost({
         info: toast.info,
       }[status] ?? toast.info;
 
-    // REMOVED: toast.dismiss() here was killing event handlers prematurely
-
     toastFn(content, toastOptions);
   }, []);
 
   // API Mutations
   const addReactionMutation = useAddReaction();
-
   const removeReactionMutation = useDeleteReaction();
 
-  // Action Toggles with explicit membership validations
   const handleToggleReaction = useCallback(
-    (emoji, hasReacted) => {
+    async (emoji, hasReacted) => {
+      if (!isGroupActive) return triggerToast("This Group is inactive!");
       if (!isMember) {
         return triggerToast(
           "Join group",
@@ -94,24 +98,29 @@ function GroupPost({
           "info",
         );
       }
+
       if (hasReacted) {
-        removeReactionMutation.mutate(
-          { postId, emoji },
-          {
-            onSuccess: () => triggerToast("Reaction removed", "", "success"),
-            onError: () =>
-              triggerToast("Error", "Failed to remove reaction", "error"),
-          },
-        );
+        try {
+          // Execute mutation handling sequentially using .mutateAsync
+          await removeReactionMutation.mutateAsync({ postId });
+          // triggerToast("Reaction removed", "", "success");
+        } catch (err) {
+          triggerToast(
+            "Error",
+            err?.message || "Failed to remove reaction",
+            "error",
+          );
+        }
       } else {
-        addReactionMutation.mutate(
-          { postId, emoji },
-          {
-            onSuccess: () => triggerToast("Reaction added", "", "success"),
-            onError: () =>
-              triggerToast("Error", "Failed to add reaction", "error"),
-          },
-        );
+        try {
+          await addReactionMutation.mutateAsync({ postId, emoji });
+        } catch (err) {
+          triggerToast(
+            "Error",
+            err?.message || "Failed to add reaction",
+            "error",
+          );
+        }
       }
     },
     [
@@ -122,6 +131,7 @@ function GroupPost({
       triggerToast,
     ],
   );
+
   const activeReactions = useMemo(() => {
     const countsMap = reactions.reduce((acc, reaction) => {
       const emoji = reaction.emoji;
@@ -144,16 +154,7 @@ function GroupPost({
   }, [reactions]);
 
   return (
-    <div className="group/post max-w-xl group relative flex flex-col gap-3 bg-zinc-900 border border-zinc-800 rounded-2xl p-4 shadow-md">
-      <ToastContainer
-        position="top-right"
-        autoClose={5000}
-        closeOnClick
-        pauseOnHover
-        draggable
-        hideProgressBar={false}
-      />
-
+    <div className="group/post max-w-xl group relative flex flex-col gap-3 bg-zinc-900 border border-zinc-800 rounded-2xl p-4 shadow-md ">
       {/* BODY SECTION: Post Text / Render Images */}
       {post.text && <p className="text-sm text-zinc-300 p-1">{post.text}</p>}
       {imgUrl && (
@@ -204,14 +205,15 @@ function GroupPost({
           <span className=" font-semibold  px-2">{post.author.username}</span>
           <time>{getTheTime(post.created)}</time>
         </div>
-        <KebabDropdown
-          isUserAuthor={isUserAuthor}
-          postId={postId}
-          onEditPost={onEditPost}
-          onDeletePost={onDeletePost}
-        />
+
+        {isUserAuthor && (
+          <KebabDropdown
+            onEditPost={() => onEditPost(postId)}
+            onDeletePost={() => onDeletePost(postId)}
+          />
+        )}
       </div>
-      <hr className="p-px border-none bg-linear-to-r from-green-700 to-amber-400 to-red-600" />
+      <hr className="p-px border-none bg-linear-to-r from-green-700 via-amber-400 to-red-600" />
 
       {/* FOOTER LINK BLOCK PATTERN: Entire Row leads to Discussion Channel */}
       <div
@@ -219,37 +221,47 @@ function GroupPost({
            justify-between items-center p-2 rounded-xl
             bg-zinc-800/40 hover:bg-zinc-800 border border-zinc-800
              hover:border-zinc-700/80 transition-all focus-within:ring-2 focus-within:ring-blue-500"
+        title={isMember ? "" : "join the group first"}
       >
-        <Link
-          to={`/post/discussion/${postId}?groupId=${groupId}`}
-          state={{ groupMembers, postData: post }}
-          className="absolute inset-0 z-0 rounded-xl"
-          aria-label="View discussion"
-        />
-
+        {isMember && (
+          <Link
+            to={`/post/discussion/${postId}?groupId=${groupId}`}
+            state={{ groupMembers, postData: post, isGroupActive }}
+            className="absolute inset-0 z-0 rounded-xl"
+            aria-label="View discussion"
+          />
+        )}
         <div
           className="flex items-center gap-3 relative"
           onClick={(e) => e.stopPropagation()}
         >
           <CommenterAvatars
-            comments={comments}
+            comments={filteredComments}
             groupMembers={groupMembers}
             onProfileOpen={onProfileOpen}
           />
           <div className=" group flex  items-center text-xs sm:text-sm font-medium text-zinc-400 group-hover/link:text-blue-400 transition-colors">
-            {comments.length === 0 && (
-              <FaRegMessage className="mr-2 text-zinc-500 group-hover:fill-amber-300  " />
+            {filteredComments.length === 0 && (
+              <FaRegMessage
+                aria-hidden="true"
+                className="mr-2 text-zinc-500 group-hover:fill-amber-300  "
+              />
             )}
-            <p className="px-2">{formatCommentCount(comments.length)}</p>
+            <p className="px-2">
+              {formatCommentCount(filteredComments.length)}
+            </p>
           </div>
-        </div>
-
+        </div>{" "}
         <div
           aria-hidden="true"
           className="p-1 text-zinc-500 group-hover/link:text-zinc-200 group-hover/link:translate-x-1 transition-all"
         >
-          <MdOutlineKeyboardArrowRight className="w-6 h-6 group-hover:fill-zinc-300 " />
-        </div>
+          {" "}
+          <MdOutlineKeyboardArrowRight
+            aria-hidden="true"
+            className="w-6 h-6 group-hover:fill-zinc-300 "
+          />
+        </div>{" "}
       </div>
     </div>
   );
