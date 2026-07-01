@@ -37,7 +37,7 @@ function IndividualAvatar({
       <img
         src={profile?.avatarUrl}
         alt={`${username || "User"}'s profile`}
-        className="w-8 h-8 rounded-full object-cover  bg-gradient-to-t from-black to-blue-600"
+        className="w-8 h-8 rounded-full object-cover  bg-linear-to-t from-black to-blue-600"
         loading="lazy"
       />
     </button>

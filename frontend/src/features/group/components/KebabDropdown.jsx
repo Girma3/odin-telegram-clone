@@ -3,11 +3,9 @@ import { CiMenuKebab } from "react-icons/ci";
 import { LuPencil, LuTrash2 } from "react-icons/lu";
 import useClickOutside from "../../chat/hooks/useClickOutside";
 
-function KebabDropdown({ isUserAuthor, postId, onEditPost, onDeletePost }) {
+function KebabDropdown({ onEditPost, onDeletePost }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useClickOutside(() => setMenuOpen(false));
-
-  if (!isUserAuthor) return null;
 
   return (
     <div ref={menuRef} className="relative">
@@ -18,10 +16,13 @@ function KebabDropdown({ isUserAuthor, postId, onEditPost, onDeletePost }) {
           setMenuOpen((prev) => !prev);
         }}
         type="button"
-        className={`p-1.5 rounded-full transition-all text-white hover:bg-white/10
+        className={`p-1.5 group rounded-full transition-all text-white hover:bg-white/10
           ${menuOpen ? "opacity-100 scale-105" : "opacity-40 group-hover:opacity-100"}`}
       >
-        <CiMenuKebab className="w-6 h-6" />
+        <CiMenuKebab
+          aria-hidden="true"
+          className={` w-6 h-6 group-hover:fill-green-500  transition-transform ${menuOpen ? "rotate-90" : ""}`}
+        />
       </button>
 
       {menuOpen && (
@@ -34,7 +35,7 @@ function KebabDropdown({ isUserAuthor, postId, onEditPost, onDeletePost }) {
           <button
             type="button"
             onClick={() => {
-              onEditPost(postId);
+              onEditPost();
               setMenuOpen(false);
             }}
             className="flex items-center gap-3 w-full px-3 py-2 text-sm font-medium rounded-lg hover:bg-zinc-800 transition-colors"
@@ -47,9 +48,10 @@ function KebabDropdown({ isUserAuthor, postId, onEditPost, onDeletePost }) {
 
           {/* Delete Button */}
           <button
+            aria-label="Delete post"
             type="button"
             onClick={() => {
-              onDeletePost(postId);
+              onDeletePost();
               setMenuOpen(false);
             }}
             className="flex items-center gap-3 w-full px-3 py-2 text-sm font-medium rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"

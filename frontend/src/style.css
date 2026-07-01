@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 * {
+  margin: 0;
   letter-spacing: 1.4px;
   word-wrap: break-word;
   line-height: 1.3rem;
@@ -13,6 +14,7 @@ button {
 .scrollbar-thin {
   scrollbar-width: none; /* Firefox - hide scrollbar */
   -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-color: rgb(0, 0, 0) rgb(146, 41, 58);
 }
 
 /* Hide scrollbar by default for WebKit browsers */
@@ -51,7 +53,7 @@ button {
 /* Original scrollbar styles (chunky version) */
 .scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: #4b5563 #111827;
+  scrollbar-color: #003783 #111827;
 }
 
 .scrollbar::-webkit-scrollbar {
@@ -69,7 +71,7 @@ button {
 }
 
 .scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: #6b7280;
+  background-color: #f0f0f0;
 }
 @keyframes fadeIn {
   from {
@@ -82,18 +84,36 @@ button {
   }
 }
 .animate-fadeIn {
-  animation: fadeIn 0.2s ease-out;
+  animation: fadeIn 0.25s ease-out;
 }
 @keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(16px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
-.animate-slideUp {
-  animation: slideUp 0.25s ease-out;
+
+.animate-slideUpFade {
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes stretchVertical {
+  from {
+    max-height: 0px;
+    opacity: 0;
+    transform: scaleY(0);
+  }
+  to {
+    max-height: 300px; /* Safe upper bound matching your list size */
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+.animate-stretchVertical {
+  animation: stretchVertical 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.1) forwards;
+  transform-origin: bottom; /* Animates upwards from the bottom-right button position */
 }

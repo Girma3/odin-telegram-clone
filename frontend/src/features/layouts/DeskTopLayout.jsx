@@ -182,7 +182,7 @@ function DesktopLayout({
           </button>
 
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-md shadow-blue-600/20">
+            <div className="w-7 h-7 rounded-lg bg-linear-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-md shadow-blue-600/20">
               <span className="text-white text-xs font-bold uppercase">
                 {username?.charAt(0)}
               </span>
