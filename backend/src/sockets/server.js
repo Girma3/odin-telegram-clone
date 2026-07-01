@@ -1,3 +1,7 @@
+import dotenv from "dotenv";
+dotenv.config();
+import jwt from "jsonwebtoken";
+import url from "url";
 import { WebSocketServer } from "ws";
 import { dispatchEvent, use } from "./dispatch-event.js";
 import { replayNotifications } from "./utils/notification.js";
@@ -5,6 +9,8 @@ import { setUserOffline, setUserOnline } from "./utils/presence.js";
 
 import logMiddleware from "./middleware/log.js";
 import { schemaValidationMiddleware } from "./middleware/validate-schema.js";
+const tokenKey = process.env.JWT_SECRET;
+
 let wss;
 function attachWebSocketServer(server) {
   wss = new WebSocketServer({ noServer: true });
@@ -15,11 +21,26 @@ function attachWebSocketServer(server) {
 
   // Attach upgrade handler
   server.on("upgrade", (req, socket, head) => {
+    const query = url.parse(req.url, true).query;
+    const token = query.token;
+
+    try {
+      const decoded = jwt.verify(token, tokenKey);
+      req.user = decoded; // so ws.req.user.id is available
+    } catch (err) {
+      socket.destroy(); // reject unauthorized
+      return;
+    }
+
     wss.handleUpgrade(req, socket, head, (ws) => {
-      // Attach request so we can access req.user (set by your app server)
       ws.req = req;
       wss.emit("connection", ws, req);
     });
+    // wss.handleUpgrade(req, socket, head, (ws) => {
+    //   // Attach request so we can access req.user (set by your app server)
+    //   ws.req = req;
+    //   wss.emit("connection", ws, req);
+    // });
   });
 
   // Global heartbeat
