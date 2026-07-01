@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect } from "react";
+import { CiMenuKebab } from "react-icons/ci";
 import { IoMdCloseCircle } from "react-icons/io";
 import { useQueries } from "@tanstack/react-query";
 import Modal from "../../profile/components/Modal.jsx";
@@ -6,6 +7,8 @@ import {
   profileByUserKey,
   useGetProfileByUser,
 } from "../../profile/hooks/useProfile.js";
+import useClickOutside from "../../chat/hooks/useClickOutside.jsx";
+import { FiUserMinus } from "react-icons/fi";
 
 const imgStyle = `w-10 h-10 rounded-full
  shadow-md border border-neutral-700/50 object-cover ring-2 ring-emerald-500/20 relative shrink-0`;
@@ -16,11 +19,11 @@ const MemberItem = React.memo(function MemberItem({
   admin,
   onProfileOpen,
   currentUser,
+  onRemoveMember,
 }) {
   const user = member?.user || {};
   const username = member?.username || user?.username || "Unknown Member";
   const userId = user?.id || member?.userId;
-
   const isSelf = currentUser === userId;
   const isAdmin = userId === admin;
 
@@ -48,7 +51,7 @@ const MemberItem = React.memo(function MemberItem({
       )}
 
       <div className="flex-1 min-w-0 flex flex-col justify-center">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-2">
           <span className="text-neutral-200 font-medium text-[14px] truncate group-hover:text-white transition-colors">
             {username}
           </span>
@@ -62,6 +65,7 @@ const MemberItem = React.memo(function MemberItem({
               You
             </span>
           )}
+          <AdminActions onRemoveMember={() => onRemoveMember(userId)} />
         </div>
 
         {/* Real dynamic bio or location displaying instantly! */}
@@ -82,6 +86,7 @@ function MemberListModal({
   members = [],
   currentUser,
   onProfileOpen,
+  onRemoveMember,
 }) {
   const listRef = useRef(null);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -168,6 +173,7 @@ function MemberListModal({
                   onProfileOpen={onProfileOpen}
                   currentUser={currentUser}
                   admin={admin}
+                  onRemoveMember={onRemoveMember}
                 />
               );
             })
@@ -185,5 +191,55 @@ function MemberListModal({
     </Modal>
   );
 }
+function AdminActions({ onRemoveMember }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useClickOutside(() => setMenuOpen(false));
 
+  return (
+    <div ref={menuRef} className="relative">
+      <button
+        aria-label="Open post menu"
+        onClick={(e) => {
+          e.stopPropagation();
+          setMenuOpen((prev) => !prev);
+        }}
+        type="button"
+        className={`p-1.5 group rounded-full transition-all text-white hover:bg-white/10
+            ${menuOpen ? "opacity-100 scale-105" : "opacity-40 group-hover:opacity-100"}`}
+      >
+        <CiMenuKebab
+          aria-hidden="true"
+          className={` w-6 h-6 group-hover:fill-green-500  transition-transform ${menuOpen ? "rotate-90" : ""}`}
+        />
+      </button>
+
+      {menuOpen && (
+        <div
+          className="absolute right-0 top-full mt-1.5 z-50 min-w-35
+              bg-zinc-900 text-zinc-100 rounded-xl shadow-2xl p-1.5 border border-zinc-800
+              animate-in fade-in slide-in-from-top-2 duration-150"
+        >
+          <div className="h-px bg-zinc-800 my-1" />
+
+          {/* remove member Button */}
+          <button
+            aria-label="remove member"
+            type="button"
+            onClick={() => {
+              onRemoveMember();
+              setMenuOpen(false);
+            }}
+            className="flex items-center gap-3 w-full px-2 py-2 text-sm font-medium rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"
+          >
+            <FiUserMinus
+              aria-hidden="true"
+              className="w-5 h-5 transition-colors"
+            />
+            <span>Remove Member</span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 export default MemberListModal;
