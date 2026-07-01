@@ -4,17 +4,23 @@ import passport from "passport";
 import jwt from "jsonwebtoken";
 import { UserSchema } from "../middlewares/validation/schema-validation.js";
 import generateUserTokens from "../middlewares/generate-token.js";
+
 import {
   createUser,
   getUserByUserByEmail,
+  updateUserPresenceStatus,
 } from "../models/user-query/user-queries.js";
 
 import {
   saveRefreshToken,
   getTokenByUserId,
   deleteTokenByUserId,
+  getTokenByToken,
+  deleteTokenByToken,
 } from "../models/token-queries.js";
-
+//ws
+import { dispatchEvent } from "../sockets/dispatch-event.js";
+import { createProfile } from "../models/user-query/profile-query.js";
 async function registerNewUser(req, res, next) {
   const result = UserSchema.pick({
     username: true,
@@ -24,6 +30,7 @@ async function registerNewUser(req, res, next) {
   if (!result.success) {
     return res.status(400).json({ message: result.error.message });
   }
+
   try {
     const { username, email } = result.data;
 
@@ -36,7 +43,19 @@ async function registerNewUser(req, res, next) {
 
     const data = await createUser(username, email);
 
-    return res.status(201).json(data);
+    //create default profile
+    const userId = data.id;
+    const profile = await createProfile(userId, username);
+
+    //token
+    const { accessToken, refreshToken, expireAt } = generateUserTokens(data);
+    await saveRefreshToken(data.id, refreshToken, expireAt);
+
+    return res.status(201).json({
+      accessToken,
+      refreshToken,
+      user: data,
+    });
   } catch (error) {
     console.error(error);
     return res
@@ -68,6 +87,16 @@ async function loginUser(req, res) {
         { expiresIn: "1d" },
       );
 
+      //Set user online  Call through dispatcher so handler runs
+      if (res.app.locals.wss) {
+        const payload = { userId: user.id };
+        dispatchEvent(
+          { userId: user.id, send: () => {} }, // minimal ws stub
+          { type: "user_online", payload },
+          req.app.locals.wss,
+        );
+      }
+      const updatedUser = await updateUserPresenceStatus(user.id, "ONLINE");
       return res.json({
         accessToken,
         refreshToken: storedToken.token,
@@ -115,13 +144,11 @@ async function refreshAccessToken(req, res) {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
 
     // Check if token exists in DB
-    const storedToken = await prismaGlobal.refreshToken.findUnique({
-      where: { token },
-    });
+    const storedToken = await getTokenByToken(token);
 
     if (!storedToken || storedToken.expiresAt < new Date()) {
       if (storedToken) {
-        await prismaGlobal.refreshToken.delete({ where: { token } });
+        await deleteTokenByToken(token);
       }
       return res
         .status(401)
@@ -180,6 +207,15 @@ async function logoutUser(req, res) {
 
     // Delete token from DB
     await deleteTokenByUserId(payload.id);
+    await updateUserPresenceStatus(payload.id, "OFFLINE");
+    if (res.app.locals.wss) {
+      const userId = { userId: payload.id };
+      dispatchEvent(
+        { userId: payload.id, send: () => {} }, // minimal ws stub
+        { type: "user_offline", payload: userId },
+        req.app.locals.wss,
+      );
+    }
     return res.status(200).json({ message: "Logout successful" });
   } catch (error) {
     console.error(error);
