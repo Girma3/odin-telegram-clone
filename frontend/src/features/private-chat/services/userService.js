@@ -67,6 +67,7 @@ const getAllUsers = async () => {
   if (!token) {
     throw new Error("Not authenticated");
   }
+
   const response = await fetch(`${apiUrl}/users`, {
     method: "GET",
     headers: {
@@ -74,12 +75,11 @@ const getAllUsers = async () => {
       "Content-Type": "application/json",
     },
   });
-
+  const result = await response.json();
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Error ${response.status}: ${errorText}`);
+    console.log(result.message || `Error ${response.status}`);
   }
-  return response.json();
+  return result;
 };
 
 const deleteUserById = async (userId) => {
@@ -87,6 +87,7 @@ const deleteUserById = async (userId) => {
   if (!token) {
     throw new Error("Not authenticated");
   }
+
   const response = await fetch(`${apiUrl}/users/${userId}`, {
     method: "DELETE",
     headers: {
@@ -94,12 +95,13 @@ const deleteUserById = async (userId) => {
       "Content-Type": "application/json",
     },
   });
+  const result = await response.json();
 
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Error ${response.status}: ${errorText}`);
+    console.log(result.message || `Error ${response.status}`);
+    throw new Error(result.message || `Error ${response.status}`);
   }
-  return response.json();
+  return result;
 };
 
 export {

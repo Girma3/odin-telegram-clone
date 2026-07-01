@@ -6,7 +6,7 @@ const getConversations = async () => {
   if (!token) {
     throw new Error("Not authenticated");
   }
-  const response = await fetch(`${apiUrl}/private-posts/conversations`, {
+  const response = await fetch(`${apiUrl}/private/conversations`, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -26,7 +26,7 @@ const getUnreadMessages = async () => {
   if (!token) {
     throw new Error("Not authenticated");
   }
-  const response = await fetch(`${apiUrl}/private-posts/unread`, {
+  const response = await fetch(`${apiUrl}/private/unread`, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -181,12 +181,30 @@ const editChat = async ({ chatId, data }) => {
   }
   return response.json();
 };
-
+const getUnreadChatCount = async (userId) => {
+  const token = getToken();
+  if (!token) {
+    throw new Error("Not authenticated");
+  }
+  const response = await fetch(`${apiUrl}/private/user/${userId}/unread`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Error ${response.status}: ${errorText}`);
+  }
+  return response.json();
+};
 export {
   getConversations,
   getUnreadMessages,
   getConversation,
   markConversationRead,
+  getUnreadChatCount,
   getChat,
   sendPrivateMessage,
   markMessageAsRead,

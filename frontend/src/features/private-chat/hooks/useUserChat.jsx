@@ -9,12 +9,14 @@ import {
   markMessageAsRead,
   deleteChat,
   editChat,
+  getUnreadChatCount,
 } from "../services/chatService";
 
-const conversationsKey = ["conversations"];
-const unreadKey = ["unread"];
-const conversationKey = (userId) => ["conversation", userId];
 const chatKey = (chatId) => ["chat", chatId];
+
+const conversationsKey = ["conversations"];
+const conversationKey = (chatId) => ["conversations", chatId];
+const unreadKey = ["unread"];
 
 // Get all conversations
 function useGetConversations(options = {}) {
@@ -25,11 +27,19 @@ function useGetConversations(options = {}) {
   });
 }
 
-// Get unread message count
+// Get all unread message count
 function useGetUnreadMessages(options = {}) {
   return useQuery({
     queryKey: unreadKey,
     queryFn: getUnreadMessages,
+    ...options,
+  });
+} //get unread chat bn two users
+function useGetUnreadChatCount(userId, options = {}) {
+  return useQuery({
+    queryKey: ["unreadChat", userId],
+    queryFn: () => getUnreadChatCount(userId),
+    enabled: !!userId,
     ...options,
   });
 }
@@ -67,14 +77,161 @@ function useGetChat(chatId, options = {}) {
   });
 }
 
-// Send a private message
+//  SEND MESSAGE MUTATION
 function useSendPrivateMessage(options = {}) {
   const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: sendPrivateMessage,
+    onMutate: async (newMsgPayload) => {
+      const chatId = newMsgPayload.receiverId;
+      const targetKey = conversationKey(chatId);
+
+      // Cancel outgoing fetches so they don't overwrite our optimistic placement
+      await queryClient.cancelQueries({ queryKey: targetKey });
+      const previousMessages = queryClient.getQueryData(targetKey);
+
+      // Create a temporary local message shell to insert immediately
+      const optimisticMsg = {
+        id: `temp-${Date.now()}`,
+        ...newMsgPayload,
+        created: new Date().toISOString(),
+        read: false,
+      };
+
+      // Push message into UI cache layout instantly
+      queryClient.setQueryData(targetKey, (old = []) => [
+        ...old,
+        optimisticMsg,
+      ]);
+
+      return { previousMessages, chatId };
+    },
+    onError: (err, newMsgPayload, context) => {
+      // Rollback UI instantly if the user's internet drops or connection fails
+      if (context?.previousMessages) {
+        queryClient.setQueryData(
+          conversationKey(context.chatId),
+          context.previousMessages,
+        );
+      }
+      options.onError?.(err, newMsgPayload, context);
+    },
+    onSuccess: (result, newMsgPayload, context) => {
+      const targetKey = conversationKey(context.chatId);
+
+      // Swap out the temporary shell with the genuine message tracking ID from the database
+      queryClient.setQueryData(targetKey, (old = []) =>
+        old.map((msg) =>
+          msg.id.toString().startsWith("temp-") ? result : msg,
+        ),
+      );
+
+      options.onSuccess?.(result, newMsgPayload, context);
+    },
+    onSettled: (result, error, newMsgPayload, context) => {
+      // Revalidate conversation arrays quietly in the background without layout locking
+      queryClient.invalidateQueries({
+        queryKey: conversationsKey,
+        refetchType: "none",
+      });
+      queryClient.invalidateQueries({
+        queryKey: conversationKey(context.chatId),
+        refetchType: "none",
+      });
+    },
+  });
+}
+
+//  EDIT MESSAGE MUTATION
+function useEdit(options = {}) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: editChat,
+    onMutate: async ({ chatId: messageId, data: payload }) => {
+      const chatId = payload.receiverId;
+      const targetKey = conversationKey(chatId);
+
+      await queryClient.cancelQueries({ queryKey: targetKey });
+      const previousMessages = queryClient.getQueryData(targetKey);
+
+      // Optimistically overwrite the specific message text instantly
+      queryClient.setQueryData(targetKey, (old = []) =>
+        old.map((msg) => (msg.id === messageId ? { ...msg, ...payload } : msg)),
+      );
+
+      return { previousMessages, chatId };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousMessages) {
+        queryClient.setQueryData(
+          conversationKey(context.chatId),
+          context.previousMessages,
+        );
+      }
+      options.onError?.(err, variables, context);
+    },
     onSuccess: (result, variables, context) => {
-      queryClient.invalidateQueries(conversationsKey);
       options.onSuccess?.(result, variables, context);
+    },
+    onSettled: (result, error, variables, context) => {
+      queryClient.invalidateQueries({
+        queryKey: conversationsKey,
+        refetchType: "none",
+      });
+      queryClient.invalidateQueries({
+        queryKey: conversationKey(context.chatId),
+        refetchType: "none",
+      });
+    },
+  });
+}
+
+// DELETE MESSAGE MUTATION
+function useDeleteChat(options = {}) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: deleteChat,
+    onMutate: async ({ messageId, chatId }) => {
+      const targetKey = conversationKey(chatId);
+
+      await queryClient.cancelQueries({ queryKey: targetKey });
+      const previousMessages = queryClient.getQueryData(targetKey);
+
+      // Remove the targeted message bubble from the screen instantly
+      queryClient.setQueryData(targetKey, (old = []) =>
+        old.filter((msg) => msg.id !== messageId),
+      );
+
+      return { previousMessages, chatId };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousMessages) {
+        queryClient.setQueryData(
+          conversationKey(context.chatId),
+          context.previousMessages,
+        );
+      }
+      options.onError?.(err, variables, context);
+    },
+    onSuccess: (result, variables, context) => {
+      options.onSuccess?.(result, variables, context);
+    },
+    onSettled: (result, error, variables, context) => {
+      queryClient.invalidateQueries({
+        queryKey: conversationsKey,
+        refetchType: "none",
+      });
+      queryClient.invalidateQueries({
+        queryKey: unreadKey,
+        refetchType: "none",
+      });
+      queryClient.invalidateQueries({
+        queryKey: conversationKey(context.chatId),
+        refetchType: "none",
+      });
     },
   });
 }
@@ -90,40 +247,40 @@ function useMarkMessageAsRead(options = {}) {
     },
   });
 }
-//edit
-function useEdit(options = {}) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: editChat,
-    onSuccess: (result, variables, context) => {
-      queryClient.invalidateQueries(conversationsKey);
-      options.onSuccess?.(result, variables, context);
-    },
-    onError: (err, variables, context) => {
-      options.onError?.(err, variables, context);
-    },
-    onSettled: (result, error, variables, context) => {
-      queryClient.invalidateQueries(conversationsKey);
-    },
-  });
-}
+function getUnreadChatWithUserCount(userId, currentUserId, chats) {
+  const chatsWithUser = chats.filter(
+    (chat) =>
+      chat.senderId === userId &&
+      chat.receiverId === currentUserId &&
+      !chat.read,
+  );
 
-// Delete a private message
-function useDeleteChat(options = {}) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: deleteChat,
-    onSuccess: (result, variables, context) => {
-      queryClient.invalidateQueries(conversationsKey);
-      queryClient.invalidateQueries(unreadKey);
-      options.onSuccess?.(result, variables, context);
-    },
-  });
+  return chatsWithUser.length;
+}
+function useUnreadCount(userId, currentUserId, privateChats) {
+  const {
+    data: unreadMessages,
+    isSuccess,
+    isLoading,
+  } = useGetUnreadChatCount(currentUserId); //sender is current user
+  if (!isLoading && !isSuccess) return 0;
+  if (!privateChats) return 0;
+  //local calculation
+  const localUnreadCount =
+    privateChats.length > 0
+      ? getUnreadChatWithUserCount(userId, currentUserId, privateChats)
+      : 0;
+  if (!isLoading && !isSuccess) {
+    return localUnreadCount;
+  }
+
+  return unreadMessages ? unreadMessages.unreadChatCount : localUnreadCount;
 }
 
 export {
   useGetConversations,
   useGetUnreadMessages,
+  useGetUnreadChatCount,
   useGetConversation,
   useMarkConversationRead,
   useGetChat,
@@ -131,4 +288,5 @@ export {
   useMarkMessageAsRead,
   useEdit,
   useDeleteChat,
+  useUnreadCount,
 };
