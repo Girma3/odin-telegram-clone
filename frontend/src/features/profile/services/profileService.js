@@ -102,7 +102,7 @@ const updateProfile = async ({ profileId, ...profile }) => {
   return result;
 };
 
-const deleteProfile = async (profileId) => {
+const deleteProfile = async ({ profileId }) => {
   const token = getToken();
   if (!token) {
     throw new Error("Not authenticated");
@@ -115,9 +115,10 @@ const deleteProfile = async (profileId) => {
     },
   });
   const result = await response.json();
+
   if (!response.ok) {
     throw new Error(
-      `Error ${response.status}: ${result.message || "Unknown error at delete profile"}`,
+      `Error ${response.status}: ${result?.message || "Unknown error at delete profile"}`,
     );
   }
   return result;

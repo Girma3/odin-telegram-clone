@@ -121,25 +121,60 @@ function useUpdateProfile(options = {}) {
 // Delete profile
 function useDeleteProfile(options = {}) {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: deleteProfile,
-    onMutate: async ({ id }) => {
-      await queryClient.cancelQueries(profilesKey);
 
+  return useMutation({
+    mutationFn: deleteProfile, // Assumes object: { id, userId }
+
+    onMutate: async ({ profileId, userId }) => {
+      // cancel all active queries for these keys to prevent racing states
+      await queryClient.cancelQueries({ queryKey: profilesKey });
+      if (profileId)
+        await queryClient.cancelQueries({ queryKey: profileKey(profileId) });
+      if (userId)
+        await queryClient.cancelQueries({ queryKey: profileByUserKey(userId) });
+
+      // snapshot the current master list for rollback safety
       const previousProfiles = queryClient.getQueryData(profilesKey);
 
-      queryClient.setQueryData(profilesKey, (old = []) =>
-        old.filter((p) => p.id !== id),
-      );
+      // optimistically update the master list array
+      queryClient.setQueryData(profilesKey, (old = []) => {
+        if (!Array.isArray(old)) return [];
+        return old.filter((p) => p.id !== profileId);
+      });
 
       return { previousProfiles };
     },
+
     onError: (err, variables, context) => {
-      queryClient.setQueryData(profilesKey, context.previousProfiles);
+      // Rollback the master list if the server request fails
+      if (context?.previousProfiles) {
+        queryClient.setQueryData(profilesKey, context.previousProfiles);
+      }
       options.onError?.(err, variables, context);
     },
-    onSettled: () => {
-      queryClient.invalidateQueries(profilesKey);
+
+    onSuccess: (data, variables, context) => {
+      // 4. MEMORY PURGE: Remove individual cache items entirely
+      // This stops other components from reading deleted data from cache
+      if (variables.profileId) {
+        queryClient.removeQueries({
+          queryKey: profileKey(variables.profileId),
+        });
+      }
+      if (variables.userId) {
+        queryClient.removeQueries({
+          queryKey: profileByUserKey(variables.userId),
+        });
+      }
+
+      options.onSuccess?.(data, variables, context);
+    },
+
+    onSettled: (data, error, variables) => {
+      //  Invalidate master list to ensure it syncs perfectly with server reality
+      queryClient.invalidateQueries({ queryKey: profilesKey });
+
+      options.onSettled?.(data, error, variables);
     },
   });
 }

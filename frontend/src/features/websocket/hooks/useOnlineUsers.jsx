@@ -2,7 +2,12 @@ import { useContext } from "react";
 import { OnlineUsersContext } from "../OnlineUsersProvider";
 
 function useOnlineUsers() {
-  return useContext(OnlineUsersContext);
+  const context = useContext(OnlineUsersContext);
+  if (!context) {
+    throw new Error(
+      "useOnlineUsers must be used within an OnlineUsersProvider",
+    );
+  }
+  return context;
 }
-
 export default useOnlineUsers;

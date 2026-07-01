@@ -1,8 +1,8 @@
 import { useMemo } from "react";
-import { connect, token } from "../wsClient";
+import { connect } from "../wsClient";
 
 function useWebSocket() {
-  const ws = useMemo(() => connect(token), [token]);
+  const ws = useMemo(() => connect(), []);
   return ws;
 }
 

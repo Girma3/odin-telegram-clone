@@ -22,10 +22,11 @@ function ProfileCard({ isSelf, user, profile, username, onClose }) {
   const [showPreview, setShowPreview] = useState(false);
   const [editing, setEditing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const onlineUsers = useOnlineUsers();
+  const { onlineUsers } = useOnlineUsers();
   const navigate = useNavigate();
 
   if (!user) return null;
+  if (user.isDeleted) return <DeletedAccount />;
 
   const { id, username: currentUsername } = user;
   const isOnline = onlineUsers?.includes(id);
@@ -70,8 +71,7 @@ function ProfileCard({ isSelf, user, profile, username, onClose }) {
   const updateProfileMutation = useUpdateProfile();
   const handleUpdateSubmit = useCallback(
     async (formData) => {
-      if (!profileData?.id) return;
-
+      if (!profileData?.id || !id) return;
       const payload = {
         userId: id,
         username: formData.username?.trim() || displayUsername,
@@ -341,6 +341,22 @@ function InfoItem({ label, value, placeholder, isLink }) {
           {displayValue}
         </span>
       )}
+    </div>
+  );
+}
+
+function DeletedAccount() {
+  return (
+    <div className="profile-card deleted-account">
+      {/* Gray Telegram-style ghost placeholder avatar */}
+      <div className="avatar-placeholder gray-ghost">👻</div>
+
+      <h2>Deleted Account</h2>
+      <p className="status-text text-gray">This user no longer exists</p>
+
+      <div className="profile-bio">
+        <p>This profile has been permanently removed by the user.</p>
+      </div>
     </div>
   );
 }
