@@ -1,17 +1,19 @@
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, useState, useEffect } from "react";
 import UserComment from "./UserComment.jsx";
 
-function getParentPreview(comments = [], parentId) {
-  const parent = comments.find((c) => c.id === parentId);
-  if (!parent) return null;
-  const text = parent.text || "";
-  return text.length > 25 ? text.slice(0, 25) + "..." : text;
-}
+const GRADIENTS = [
+  "from-pink-500 to-rose-500",
+  "from-violet-500 to-indigo-500",
+  "from-emerald-400 to-teal-500",
+  "from-amber-400 to-orange-500",
+];
 
-function isUserCommentOwner(userId, comment) {
-  if (!userId || !comment) return false;
-  return userId === comment.userId;
-}
+// Reusable slick style presets
+const REPLY_BANNER_CLASS = `
+  relative group/reply flex items-center gap-2 pl-4 pr-3 py-1.5 
+  bg-zinc-900/50 border-b border-zinc-800/60 cursor-pointer 
+  text-xs text-zinc-400 hover:text-violet-400 rounded-t-xl transition-all duration-200
+`;
 
 function CommentThread({
   comments,
@@ -20,96 +22,138 @@ function CommentThread({
   onCommentDelete,
   onCommentEdit,
   onNestedComment,
-  onReaction,
 }) {
+  if (!comments?.length) return null;
   const commentRefs = useRef({});
+  const [highlightedId, setHighlightedId] = useState(null);
 
-  const parentPreviewMap = useMemo(() => {
-    const map = {};
+  // Fix: Clean, stable gradient choice per mounting instance
+  const activeGradient = useMemo(() => {
+    const index = Math.floor(Math.random() * GRADIENTS.length);
+    return GRADIENTS[index];
+  }, []);
 
-    function buildPreviewMap(allComments) {
-      allComments.forEach((comment) => {
-        if (comment.replies) {
-          comment.replies.forEach((reply) => {
-            const parent = allComments.find((c) => c.id === reply.parentId);
-            if (parent) {
-              const text = parent.text || "";
-              map[reply.id] =
-                text.length > 25 ? text.slice(0, 25) + "..." : text;
-            }
-            buildPreviewMap(comment.replies);
-          });
+  // Fix: Optimize tree flattening and parent map calculation to single-pass O(N)
+  const { flattenedComments, parentPreviewMap, deletedParentSet } =
+    useMemo(() => {
+      const list = [];
+      const previewMap = {};
+      const lookupTable = new Map();
+      const deletedParentList = new Set();
+      function processNodes(nodes) {
+        if (!nodes) return;
+        for (let i = 0; i < nodes.length; i++) {
+          const comment = nodes[i];
+
+          list.push(comment);
+          const isDeleted = comment.author.isDeleted;
+
+          const commentText = isDeleted ? "[comment Deleted]" : comment.text;
+          lookupTable.set(comment.id, commentText);
+          if (isDeleted) {
+            deletedParentList.add(comment.id);
+          }
+          if (comment.replies?.length) {
+            processNodes(comment.replies);
+          }
         }
+      }
+
+      processNodes(comments);
+
+      // Build parent preview strings safely
+      list.forEach((comment) => {
+        if (!comment.parentId) return;
+
+        const parentText = lookupTable.get(comment.parentId) || "";
+        previewMap[comment.id] =
+          parentText.length > 25 ? `${parentText.slice(0, 25)}...` : parentText;
       });
-    }
 
-    buildPreviewMap(comments);
-    return map;
-  }, [comments]);
+      return {
+        flattenedComments: list,
+        parentPreviewMap: previewMap,
+        deletedParentSet: deletedParentList,
+      };
+    }, [comments]);
 
-  const setRef = (id, node) => {
-    if (node) commentRefs.current[id] = node;
-  };
+  // Clean timeout safety for highlighted states
+  useEffect(() => {
+    if (!highlightedId) return;
+    const timer = setTimeout(() => setHighlightedId(null), 1500);
+    return () => clearTimeout(timer);
+  }, [highlightedId]);
 
   const jumpToParent = (parentId) => {
-    const parentNode = commentRefs.current[parentId];
-    if (parentNode) {
-      parentNode.scrollIntoView({ behavior: "smooth", block: "center" });
-      parentNode.classList.add("ring-2", "ring-blue-400", "bg-blue-50");
-      setTimeout(() => {
-        parentNode.classList.remove("ring-2", "ring-blue-400", "bg-blue-50");
-      }, 1500);
+    const targetNode = commentRefs.current[parentId];
+    if (targetNode) {
+      targetNode.scrollIntoView({ behavior: "smooth", block: "center" });
+      setHighlightedId(parentId);
     }
   };
 
-  const renderComment = (comment) => (
-    <div
-      key={comment.id}
-      ref={(node) => setRef(comment.id, node)}
-      className="relative"
-    >
-      {comment.parentId && parentPreviewMap[comment.id] && (
-        <div
-          className="mb-1 cursor-pointer text-xs text-gray-400 hover:text-blue-400"
-          onClick={() => jumpToParent(comment.parentId)}
-        >
-          ↳ Replying to "{parentPreviewMap[comment.id]}"
-        </div>
-      )}
-      <UserComment
-        currentUser={currentUser}
-        user={comment?.author?.profile}
-        comment={comment}
-        owner={isUserCommentOwner(currentUser, comment)}
-        onProfileOpen={onProfileOpen}
-        onCommentDelete={onCommentDelete}
-        onCommentEdit={onCommentEdit}
-        onNestedComment={onNestedComment}
-        mode={comment.parentId ? "reply" : "comment"}
-      />
-    </div>
-  );
-
-  const allComments = useMemo(() => {
-    const result = [];
-
-    function flatten(commentsArray) {
-      commentsArray.forEach((comment) => {
-        result.push(comment);
-        if (comment.replies && comment.replies.length > 0) {
-          flatten(comment.replies);
-        }
-      });
-    }
-
-    flatten(comments);
-    return result;
-  }, [comments]);
-
   return (
-    <ul className="flex flex-col">
-      {allComments.map((comment) => renderComment(comment))}
-    </ul>
+    <div className="flex flex-col gap-4 w-full">
+      {flattenedComments.map((comment) => {
+        const isOwner = currentUser && comment?.userId === currentUser;
+        const hasParent = comment.parentId && parentPreviewMap[comment.id];
+        const isCurrentlyHighlighted = highlightedId === comment.id;
+        const isParentDeleted = deletedParentSet.has(comment.parentId);
+        //if comment deleted  return early
+        if (comment.author.isDeleted) return null;
+
+        return (
+          <div
+            key={comment.id}
+            ref={(node) => {
+              if (node) commentRefs.current[comment.id] = node;
+            }}
+            className={`
+              flex flex-col w-full border rounded-xl bg-zinc-900/20  transition-all duration-300
+hover:shadow-md hover:shadow-green-700 
+             
+              ${
+                isCurrentlyHighlighted
+                  ? "border-violet-500/80 ring-2 ring-violet-500/20 bg-violet-950/10 shadow-lg shadow-violet-500/5 translate-x-1"
+                  : "border-zinc-900 hover:border-zinc-800/80"
+              }
+            `}
+          >
+            {/* Contextual Reply Tracker Row */}
+            {hasParent && (
+              <div
+                className={`${REPLY_BANNER_CLASS} ${isParentDeleted ? "pointer-events-none cursor-default" : ""} `}
+                onClick={() =>
+                  !isParentDeleted && jumpToParent(comment.parentId)
+                }
+              >
+                {/* Visual Anchor Bar */}
+                <span
+                  className={`absolute left-0 top-0 bottom-0 w-1 bg-linear-to-b ${activeGradient} rounded-tl-xl`}
+                />
+                <span className="text-zinc-500">Replying to</span>
+                <span className="font-medium text-zinc-300 group-hover/reply:text-violet-300 transition-colors truncate max-w-[220px]">
+                  "{parentPreviewMap[comment.id]}"
+                </span>
+              </div>
+            )}
+
+            <UserComment
+              currentUser={currentUser}
+              user={comment?.author}
+              profile={comment?.author?.profile}
+              comment={comment}
+              owner={isOwner}
+              onProfileOpen={onProfileOpen}
+              onCommentDelete={onCommentDelete}
+              onCommentEdit={onCommentEdit}
+              onNestedComment={onNestedComment}
+              mode="reply"
+            />
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
