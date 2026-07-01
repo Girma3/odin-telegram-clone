@@ -125,72 +125,28 @@ function useCreatePost(options = {}) {
   });
 }
 
-function useUpdatePost(options = {}) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: updatePost,
-    onMutate: async ({ postId, ...postData }) => {
-      await queryClient.cancelQueries(postKey(postId));
-
-      const previousPost = queryClient.getQueryData(postKey(postId));
-      const previousFeed = queryClient.getQueryData(postsKey);
-
-      queryClient.setQueryData(postKey(postId), (old) => ({
-        ...old,
-        ...postData,
-      }));
-
-      queryClient.setQueryData(postsKey, (old = []) =>
-        old.map((post) =>
-          post.id === postId ? { ...post, ...postData } : post,
-        ),
-      );
-
-      return { previousPost, previousFeed };
-    },
-    onError: (err, variables, context) => {
-      queryClient.setQueryData(postKey(variables.postId), context.previousPost);
-      queryClient.setQueryData(postsKey, context.previousFeed);
-      options.onError?.(err, variables, context);
-    },
-    onSuccess: (result, variables, context) => {
-      const post = result;
-      if (!post) return;
-
-      queryClient.setQueryData(postKey(post.id), post);
-      queryClient.setQueryData(postsKey, (old = []) =>
-        old.map((item) => (item.id === post.id ? post : item)),
-      );
-
-      if (post.groupId) {
-        queryClient.setQueryData(groupPostsKey(post.groupId), (old = []) =>
-          old.map((item) => (item.id === post.id ? post : item)),
-        );
-      }
-      options.onSuccess?.(result, variables, context);
-    },
-    onSettled: (result, variables) => {
-      queryClient.invalidateQueries(postKey(variables.postId));
-      queryClient.invalidateQueries(postsKey);
-      if (result?.groupId) {
-        queryClient.invalidateQueries(groupPostsKey(result.groupId));
-      }
-    },
-  });
-}
-
 function useDeletePost(options = {}) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: deletePost,
     onMutate: async (postId) => {
-      await queryClient.cancelQueries(postKey(postId));
+      // 1. Cancel all ongoing fetches for related keys to protect our snapshot
+      await queryClient.cancelQueries({ queryKey: postsKey });
+      await queryClient.cancelQueries({ queryKey: postKey(postId) });
 
       const previousPost = queryClient.getQueryData(postKey(postId));
       const previousFeed = queryClient.getQueryData(postsKey);
 
+      // Keep track of the full group array state before mutating
+      let previousGroupFeed = null;
+      if (previousPost?.groupId) {
+        const groupKey = groupPostsKey(previousPost.groupId);
+        await queryClient.cancelQueries({ queryKey: groupKey });
+        previousGroupFeed = queryClient.getQueryData(groupKey);
+      }
+
+      // 2. Perform optimistic UI updates instantly
       queryClient.setQueryData(postsKey, (old = []) =>
         old.filter((post) => post.id !== postId),
       );
@@ -202,27 +158,142 @@ function useDeletePost(options = {}) {
         );
       }
 
-      queryClient.removeQueries(postKey(postId));
+      // !!! REMOVED: queryClient.removeQueries(postKey(postId)) was dropped from here.
+      // Wiping data early leaves React Query with a broken hook layout reference.
 
-      return { previousPost, previousFeed };
+      return { previousPost, previousFeed, previousGroupFeed };
     },
-    onError: (err, variables, context) => {
-      queryClient.setQueryData(postKey(variables), context.previousPost);
-      queryClient.setQueryData(postsKey, context.previousFeed);
-      if (context.previousPost?.groupId) {
+    onError: (err, postId, context) => {
+      // 3. Complete and accurate rollbacks if server fails
+      if (context?.previousPost) {
+        queryClient.setQueryData(postKey(postId), context.previousPost);
+      }
+      if (context?.previousFeed) {
+        queryClient.setQueryData(postsKey, context.previousFeed);
+      }
+      if (context?.previousPost?.groupId && context?.previousGroupFeed) {
         queryClient.setQueryData(
           groupPostsKey(context.previousPost.groupId),
-          (old = []) => [...old, context.previousPost],
+          context.previousGroupFeed,
+        );
+      }
+      options.onError?.(err, postId, context);
+    },
+    onSuccess: (result, postId, context) => {
+      // 4. Clean up memory ONLY on guaranteed network success
+      queryClient.removeQueries({ queryKey: postKey(postId) });
+      options.onSuccess?.(result, postId, context);
+    },
+    onSettled: (result, error, postId, context) => {
+      // 5. Run smart background validation without blocking layout UI thread
+      queryClient.invalidateQueries({
+        queryKey: postsKey,
+        refetchType: "none",
+      });
+      if (context?.previousPost?.groupId) {
+        queryClient.invalidateQueries({
+          queryKey: groupPostsKey(context.previousPost.groupId),
+          refetchType: "none",
+        });
+      }
+    },
+  });
+}
+
+function useUpdatePost(options = {}) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: updatePost,
+    onMutate: async ({ postId, ...postData }) => {
+      await queryClient.cancelQueries({ queryKey: postKey(postId) });
+      await queryClient.cancelQueries({ queryKey: postsKey });
+
+      const previousPost = queryClient.getQueryData(postKey(postId));
+      const previousFeed = queryClient.getQueryData(postsKey);
+
+      let previousGroupFeed = null;
+      if (previousPost?.groupId) {
+        const groupKey = groupPostsKey(previousPost.groupId);
+        await queryClient.cancelQueries({ queryKey: groupKey });
+        previousGroupFeed = queryClient.getQueryData(groupKey);
+      }
+
+      // Optimistic Single Post Update
+      queryClient.setQueryData(postKey(postId), (old) => ({
+        ...old,
+        ...postData,
+      }));
+
+      // Optimistic Feed Update
+      queryClient.setQueryData(postsKey, (old = []) =>
+        old.map((post) =>
+          post.id === postId ? { ...post, ...postData } : post,
+        ),
+      );
+
+      // Optimistic Group Feed Update
+      if (previousPost?.groupId) {
+        queryClient.setQueryData(
+          groupPostsKey(previousPost.groupId),
+          (old = []) =>
+            old.map((post) =>
+              post.id === postId ? { ...post, ...postData } : post,
+            ),
+        );
+      }
+
+      return { previousPost, previousFeed, previousGroupFeed };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousPost) {
+        queryClient.setQueryData(
+          postKey(variables.postId),
+          context.previousPost,
+        );
+      }
+      if (context?.previousFeed) {
+        queryClient.setQueryData(postsKey, context.previousFeed);
+      }
+      if (context?.previousPost?.groupId && context?.previousGroupFeed) {
+        queryClient.setQueryData(
+          groupPostsKey(context.previousPost.groupId),
+          context.previousGroupFeed,
         );
       }
       options.onError?.(err, variables, context);
     },
-    onSuccess: (result, postId, context) => {
-      options.onSuccess?.(result, postId, context);
+    onSuccess: (result, variables, context) => {
+      const post = result;
+      if (!post) return;
+
+      // Overwrite optimistic values with actual data returned from server database
+      queryClient.setQueryData(postKey(post.id), post);
+
+      queryClient.setQueryData(postsKey, (old = []) =>
+        old.map((item) => (item.id === post.id ? post : item)),
+      );
+
+      if (post.groupId) {
+        queryClient.setQueryData(groupPostsKey(post.groupId), (old = []) =>
+          old.map((item) => (item.id === post.id ? post : item)),
+        );
+      }
+      options.onSuccess?.(result, variables, context);
     },
-    onSettled: (result, postId) => {
-      queryClient.invalidateQueries(postsKey);
-      queryClient.invalidateQueries(postKey(postId));
+    onSettled: (result) => {
+      if (result?.id) {
+        queryClient.invalidateQueries({
+          queryKey: postKey(result.id),
+          refetchType: "none",
+        });
+      }
+      if (result?.groupId) {
+        queryClient.invalidateQueries({
+          queryKey: groupPostsKey(result.groupId),
+          refetchType: "none",
+        });
+      }
     },
   });
 }

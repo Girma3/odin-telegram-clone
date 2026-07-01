@@ -41,13 +41,13 @@ const getReactions = async (postId) => {
       "Content-Type": "application/json",
     },
   });
-
+  const result = await response.json();
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Error ${response.status}: ${errorText}`);
+    console.log(result.message || `Error ${response.status}`);
+    throw new Error(result.message || `Error ${response.status}`);
   }
 
-  return response.json();
+  return result;
 };
 const deleteReaction = async (postId) => {
   const response = await fetchWithAuth(`${apiUrl}/posts/${postId}/reactions`, {
@@ -56,12 +56,13 @@ const deleteReaction = async (postId) => {
       "Content-Type": "application/json",
     },
   });
+  const result = await response.json();
 
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Error ${response.status}: ${errorText}`);
+    console.log(result.message || `Error ${response.status}`);
+    throw new Error(result.message || `Error ${response.status}`);
   }
 
-  return response.json();
+  return result;
 };
 export { addReactionToPost, getReactions, deleteReaction };

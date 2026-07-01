@@ -8,6 +8,7 @@ import useOnlineUsers from "../../websocket/hooks/useOnlineUsers";
 
 function UserComment({
   user,
+  profile,
   comment,
   owner = false,
   currentUser,
@@ -20,13 +21,15 @@ function UserComment({
   if (!user || !comment) return null;
 
   const { text, id: commentId, userId, postId } = comment;
-  const onlineUsers = useOnlineUsers();
+  const { onlineUsers } = useOnlineUsers();
   const isOnline = onlineUsers.includes(userId);
 
   // Safe defensive data targeting
-  const profileData = user || comment?.author?.profile || {};
-  const avatarUrl = profileData?.avatarUrl || "";
+  const profileData = profile || {};
+  const avatarUrl = profileData?.avatarUrl || "/images/jet.jpg";
   const username = comment?.author?.username || "User";
+  const authorDeleted = comment?.author?.isDeleted;
+  if (authorDeleted) return null;
 
   const [hovered, setHovered] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -55,7 +58,7 @@ function UserComment({
     <div
       className="group/comment flex 
       items-start gap-3 p-3 w-full max-w-2xl rounded-xl
-       animate-[fadeIn_0.5s_ease-out] transition-all duration-200"
+       animate-[fadeIn_2s_ease-out] transition-all duration-200"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={handleMouseLeave}
     >
@@ -89,7 +92,7 @@ function UserComment({
 
         {/* Text bubble element */}
         <div className="rounded-2xl rounded-tl-none bg-zinc-900/60 border border-zinc-800/50 px-4 py-2.5 text-zinc-200 text-[14px] leading-relaxed shadow-sm break-words selection:bg-violet-500/30">
-          {text && <p>{text}</p>}
+          {text && <p>{authorDeleted ? "[Deleted Comment]" : text}</p>}
         </div>
 
         {/* Dynamic Action Interaction Row */}
@@ -105,7 +108,7 @@ function UserComment({
               onClick={() => onNestedComment(commentId)}
               className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-violet-400 font-medium transition-colors group/btn"
             >
-              {mode === "reply" ? (
+              {authorDeleted ? null : mode === "reply" ? (
                 <>
                   <FaReply className="w-3 h-3 group-hover/btn:-translate-x-0.5 transition-transform" />
                   <span>Reply</span>
@@ -120,8 +123,9 @@ function UserComment({
           </div>
 
           {/* Context Management Section */}
+
           <div className="relative flex items-center">
-            {owner && (hovered || menuOpen) && (
+            {owner && (
               <button
                 type="button"
                 aria-label="Comment options"
@@ -129,7 +133,7 @@ function UserComment({
                 className="p-1 rounded-md text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900 transition-all"
               >
                 <CiMenuKebab
-                  className={`w-4 h-4 transition-transform duration-200 ${menuOpen ? "rotate-90 text-violet-400" : ""}`}
+                  className={`w-5 h-5 transition-transform duration-200 ${menuOpen ? "rotate-90 text-violet-400" : ""}`}
                 />
               </button>
             )}

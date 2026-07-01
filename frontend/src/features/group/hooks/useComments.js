@@ -7,12 +7,17 @@ import {
   updateComment,
 } from "../services/commentService.js";
 
-const postCommentsKey = (postId) => ["posts", postId, "comments"];
+const postCommentsKey = (postId, nested) => [
+  "posts",
+  postId,
+  "comments",
+  nested,
+];
 
-function useGetComments(postId, options = {}) {
+function useGetComments(postId, nested = true, options = {}) {
   return useQuery({
-    queryKey: postCommentsKey(postId),
-    queryFn: () => getCommentsForPost(postId),
+    queryKey: postCommentsKey(postId, nested),
+    queryFn: () => getCommentsForPost(postId, nested),
     enabled: !!postId,
     ...options,
   });
@@ -58,7 +63,7 @@ function useCreateComment(options = {}) {
         postCommentsKey(variables.postId),
         (old = []) => [...old.filter((item) => !item.optimistic), comment],
       );
-
+      queryClient.invalidateQueries(postCommentsKey(variables.postId));
       options.onSuccess?.(result, variables, context);
     },
     onSettled: (result, variables) => {
@@ -93,6 +98,7 @@ function useDeleteComment(options = {}) {
       options.onError?.(err, variables, context);
     },
     onSuccess: (result, variables, context) => {
+      queryClient.invalidateQueries(postCommentsKey(variables.postId));
       options.onSuccess?.(result, variables, context);
     },
     onSettled: (result, variables) => {
@@ -107,6 +113,7 @@ function useThreadedComments(options = {}) {
   });
 }
 function useUpdateComment(options = {}) {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: updateComment,
     onSuccess: (result, variables, context) => {
@@ -114,6 +121,9 @@ function useUpdateComment(options = {}) {
     },
     onError: (err, variables, context) => {
       options.onError?.(err, variables, context);
+    },
+    onSettled: (result, error, variables) => {
+      queryClient.invalidateQueries(postCommentsKey(variables.postId));
     },
   });
 }

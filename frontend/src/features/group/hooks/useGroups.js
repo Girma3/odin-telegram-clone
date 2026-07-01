@@ -42,19 +42,6 @@ function useGetGroupByName(name, options = {}) {
   });
 }
 
-// Get single group
-//
-/*
-function useGetGroup(groupId, options = {}) {
-  return useQuery({
-    queryKey: groupKey(groupId),
-    queryFn: () => getGroup(groupId),
-    enabled: !!groupId,
-
-    ...options,
-  });
-}*/
-
 function useGetGroupByUserId(userId, options = {}) {
   return useQuery({
     queryKey: groupKey(userId),
@@ -176,14 +163,18 @@ function useLeaveGroup(options = {}) {
 // Update group
 function useUpdateGroup(options = {}) {
   const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: updateGroup,
     onMutate: async ({ groupId, ...groupData }) => {
-      await queryClient.cancelQueries(groupsKey);
+      // 1. Cancel active queries to protect the snapshot
+      await queryClient.cancelQueries({ queryKey: groupsKey });
+      await queryClient.cancelQueries({ queryKey: groupKey(groupId) });
 
       const previousGroups = queryClient.getQueryData(groupsKey);
       const previousGroup = queryClient.getQueryData(groupKey(groupId));
 
+      // 2. Perform optimistic updates instantly
       queryClient.setQueryData(groupsKey, (old = []) =>
         old.map((g) => (g.id === groupId ? { ...g, ...groupData } : g)),
       );
@@ -195,26 +186,48 @@ function useUpdateGroup(options = {}) {
 
       return { previousGroups, previousGroup };
     },
-
     onError: (err, variables, context) => {
-      queryClient.setQueryData(groupsKey, context.previousGroups);
-      queryClient.setQueryData(
-        groupKey(variables.groupId),
-        context.previousGroup,
-      );
+      // 3. Rollback on failure
+      if (context?.previousGroups) {
+        queryClient.setQueryData(groupsKey, context.previousGroups);
+      }
+      if (context?.previousGroup) {
+        queryClient.setQueryData(
+          groupKey(variables.groupId),
+          context.previousGroup,
+        );
+      }
       options.onError?.(err, variables, context);
     },
     onSuccess: (result, variables, context) => {
-      const group = result?.group;
-      if (group) {
+      // 4. FIXED: Automatically handle both flat payloads and nested object payloads safely
+      const group = result?.group || result;
+
+      if (group?.id) {
         queryClient.setQueryData(groupKey(group.id), group);
+
+        // Also keep the main feed array synchronized with the genuine backend data
+        queryClient.setQueryData(groupsKey, (old = []) =>
+          old.map((g) => (g.id === group.id ? group : g)),
+        );
       }
 
       options.onSuccess?.(result, variables, context);
     },
-    onSettled: (result, variables) => {
-      queryClient.invalidateQueries(groupsKey);
-      queryClient.invalidateQueries(groupKey(variables.groupId));
+    onSettled: (result, error, variables) => {
+      // 5. Silent background updates to eliminate UI stuttering
+      const groupId = result?.group?.id || result?.id || variables.groupId;
+
+      queryClient.invalidateQueries({
+        queryKey: groupsKey,
+        refetchType: "none",
+      });
+      if (groupId) {
+        queryClient.invalidateQueries({
+          queryKey: groupKey(groupId),
+          refetchType: "none",
+        });
+      }
     },
   });
 }

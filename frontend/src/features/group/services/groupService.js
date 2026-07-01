@@ -115,6 +115,7 @@ const leaveGroup = async (groupId) => {
       "Content-Type": "application/json",
     },
   });
+
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`Error ${response.status}: ${errorText}`);
@@ -258,13 +259,13 @@ const updateGroup = async ({ groupId, ...groupData }) => {
   }
   return response.json();
 };
-
+//soft delete group
 const deleteGroup = async (groupId) => {
   const token = getAccessToken();
   if (!token) {
     throw new Error("Not authenticated");
   }
-  const response = await fetch(`${apiUrl}/groups/${groupId}`, {
+  const response = await fetch(`${apiUrl}/groups/${groupId}/soft`, {
     method: "DELETE",
     headers: {
       Authorization: `Bearer ${token}`,

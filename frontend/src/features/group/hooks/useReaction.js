@@ -15,27 +15,26 @@ function useGetReactions(postId, options = {}) {
     ...options,
   });
 }
-
-function useAddReaction(options = {}) {
+function useAddReaction() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ postId, ...reactionData }) =>
-      addReactionToPost(postId, reactionData),
-    onMutate: async ({ postId, ...reactionData }) => {
-      await queryClient.cancelQueries(postReactionsKey(postId));
+    mutationFn: ({ postId, emoji }) => addReactionToPost(postId, { emoji }),
 
-      const previousReactions = queryClient.getQueryData(
-        postReactionsKey(postId),
-      );
+    onMutate: async ({ postId, emoji }) => {
+      const queryKey = postReactionsKey(postId);
+      await queryClient.cancelQueries({ queryKey });
+
+      const previousReactions = queryClient.getQueryData(queryKey) ?? [];
 
       const optimisticReaction = {
-        ...reactionData,
-        id: Date.now().toString(),
+        emoji,
+        id: `optimistic-${Date.now()}`,
         optimistic: true,
       };
 
-      queryClient.setQueryData(postReactionsKey(postId), (old = []) => [
+      // Handle updating safely
+      queryClient.setQueryData(queryKey, (old = []) => [
         ...old,
         optimisticReaction,
       ]);
@@ -45,37 +44,36 @@ function useAddReaction(options = {}) {
     onError: (err, variables, context) => {
       queryClient.setQueryData(
         postReactionsKey(variables.postId),
-        context.previousReactions,
+        context?.previousReactions,
       );
-      options.onError?.(err, variables, context);
     },
-    onSuccess: (result, variables, context) => {
-      queryClient.setQueryData(
-        postReactionsKey(variables.postId),
-        (old = []) => [...old.filter((item) => !item.optimistic), result],
-      );
-      options.onSuccess?.(result, variables, context);
-    },
-    onSettled: (result, variables) => {
-      queryClient.invalidateQueries(postReactionsKey(variables.postId));
+    onSettled: (data, error, variables) => {
+      // Force background re-synchronization frame
+      queryClient.invalidateQueries({
+        queryKey: ["posts"],
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: postReactionsKey(variables.postId),
+      });
     },
   });
 }
-
-function useDeleteReaction(options = {}) {
+function useDeleteReaction() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: ({ postId }) => deleteReaction(postId),
-    onMutate: async ({ postId }) => {
-      await queryClient.cancelQueries(postReactionsKey(postId));
 
-      const previousReactions = queryClient.getQueryData(
-        postReactionsKey(postId),
-      );
+    onMutate: async ({ postId, emoji }) => {
+      const queryKey = postReactionsKey(postId);
+      await queryClient.cancelQueries({ queryKey });
 
-      queryClient.setQueryData(postReactionsKey(postId), (old = []) =>
-        old.filter((reaction) => !reaction.optimistic),
+      const previousReactions = queryClient.getQueryData(queryKey) ?? [];
+
+      // Optimistically filter out the target active emoji reaction icon
+      queryClient.setQueryData(queryKey, (old = []) =>
+        old.filter((reaction) => reaction.emoji !== emoji),
       );
 
       return { previousReactions };
@@ -83,15 +81,17 @@ function useDeleteReaction(options = {}) {
     onError: (err, variables, context) => {
       queryClient.setQueryData(
         postReactionsKey(variables.postId),
-        context.previousReactions,
+        context?.previousReactions,
       );
-      options.onError?.(err, variables, context);
     },
-    onSuccess: (result, variables, context) => {
-      options.onSuccess?.(result, variables, context);
-    },
-    onSettled: (result, variables) => {
-      queryClient.invalidateQueries(postReactionsKey(variables.postId));
+    onSettled: (data, error, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["posts"],
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: postReactionsKey(variables.postId),
+      });
     },
   });
 }

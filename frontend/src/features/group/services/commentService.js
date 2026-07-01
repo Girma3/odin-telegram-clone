@@ -2,14 +2,16 @@ import { fetchWithAuth } from "../../auth/services/authService";
 
 const apiUrl = import.meta.env.VITE_API_URL;
 
-const getCommentsForPost = async (postId) => {
-  const response = await fetch(`${apiUrl}/posts/${postId}/comments`, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
+const getCommentsForPost = async (postId, nested) => {
+  const response = await fetch(
+    `${apiUrl}/posts/${postId}/comments/?nested=${nested}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
     },
-  });
-
+  );
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`Error ${response.status}: ${errorText}`);
@@ -26,7 +28,6 @@ const createComment = async ({ postId, ...commentData }) => {
     },
     body: JSON.stringify(commentData),
   });
-
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`Error ${response.status}: ${errorText}`);
@@ -52,21 +53,7 @@ const deleteComment = async (commentId) => {
 
   return response.json();
 };
-//get threaded comments  for a post
-//groupPostRouter.get("/comments/:postId", getCommentsWithTelegramStyle);
-const getCommentsWithTelegramStyle = async (postId) => {
-  const response = await fetch(`${apiUrl}/posts/${postId}/comments`, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Error ${response.status}: ${errorText}`);
-  }
-  return response.json();
-};
+
 const updateComment = async ({ commentId, ...commentData }) => {
   const response = await fetchWithAuth(
     `${apiUrl}/posts/comments/${commentId}`,
@@ -78,11 +65,25 @@ const updateComment = async ({ commentId, ...commentData }) => {
       body: JSON.stringify(commentData),
     },
   );
+
+  if (!response.ok) {
+    const errorText = await response.json()?.message;
+    throw new Error(`Error ${response.status}: ${errorText}`);
+  }
+
+  return response.json();
+};
+const getCommentsWithTelegramStyle = async (postId) => {
+  const response = await fetch(`${apiUrl}/posts/${postId}/comments`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`Error ${response.status}: ${errorText}`);
   }
-
   return response.json();
 };
 export {
