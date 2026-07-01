@@ -1,11 +1,18 @@
-import { useLocation, useParams } from "react-router-dom";
+import {
+  useLocation,
+  useNavigate,
+  useOutletContext,
+  useParams,
+} from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import GroupPost from "./GroupPost";
 import {
+  useDeleteGroup,
   useGetGroup,
   useIsUserMember,
   useJoinGroup,
   useLeaveGroup,
+  useRemoveMemberFromGroup,
 } from "../hooks/useGroups";
 import ChatInput from "../../chat/components/ChatInput";
 import {
@@ -15,9 +22,11 @@ import {
   useUpdatePost,
 } from "../hooks/usePosts";
 import { useCallback, useMemo, useState } from "react";
-import { MemberListModal } from "./MemberProfile";
+import MemberListModal from "./MemberProfile";
 import { RiGroupLine } from "react-icons/ri";
 import { FiLogOut, FiUserPlus } from "react-icons/fi";
+import { useAuthContext } from "../../auth/AuthContext";
+import { MdDelete } from "react-icons/md";
 
 const toastNotify = (type, message) => {
   if (type === "success") {
@@ -27,9 +36,11 @@ const toastNotify = (type, message) => {
   }
 };
 
-function GroupPage({ currentUser, onProfileOpen }) {
+function GroupPage({}) {
   const { id: groupId } = useParams();
   const location = useLocation();
+  const { onProfileOpen } = useOutletContext();
+  const { currentUser } = useAuthContext();
   const { groupData } = location.state || {};
 
   // Queries
@@ -43,9 +54,9 @@ function GroupPage({ currentUser, onProfileOpen }) {
   const { data: isMemberData } = useIsUserMember(groupId, currentUser?.id);
 
   const group = fetchGroup || groupData;
-  const isGroupMember = !!isMemberData?.member;
+  const isGroupActive = group?.isDeleted;
   const isOwner = group?.ownerId === currentUser?.id;
-  const isAdmin = currentUser?.id === group?.ownerId;
+  const isGroupMember = !!isMemberData?.member;
 
   // Local UI State
   const [editedPost, setEditedPost] = useState(null);
@@ -55,9 +66,12 @@ function GroupPage({ currentUser, onProfileOpen }) {
   // Mutations
   const joinGroupMutation = useJoinGroup();
   const leaveGroupMutation = useLeaveGroup();
+  const deleteGroupMutation = useDeleteGroup();
+  const removeMember = useRemoveMemberFromGroup();
   const createNewPostMutation = useCreatePost();
   const editPostMutation = useUpdatePost();
   const deletePostMutation = useDeletePost();
+  const navigate = useNavigate();
 
   // Safely derive group data fields with defensive fallbacks
   const profile = group?.profile || {};
@@ -103,38 +117,6 @@ function GroupPage({ currentUser, onProfileOpen }) {
     [editedPostData?.id, editPostMutation],
   );
 
-  // const handleNewPost = useCallback(
-  //   (data) => {
-  //     if (!group?.id) return;
-  //     const payload = { groupId: group.id, ...data };
-  //     createNewPostMutation.mutate(payload, {
-  //       onSuccess: () => toastNotify("success", "Post created successfully"),
-  //       onError: () => toastNotify("error", "Failed to create post"),
-  //     });
-  //   },
-  //   [group?.id, createNewPostMutation],
-  // );
-  // const handleUpdateForm = useCallback(
-  //   async (data) => {
-  //     if (!editedPostData?.id) return;
-
-  //     const payload = { postId: editedPostData.id, ...data };
-  //     try{
-  //       await editPostMutation.mutateAsync(payload);
-  //     }catch(e){
-  //       console.log(e);
-  //     }
-  //     // editPostMutation.mutate(payload, {
-  //     //   onSuccess: () => toastNotify("success", "Post updated successfully"),
-  //     //   onError: () => toastNotify("error", "Error updating post"),
-  //     //   onSettled: () => {
-  //     //     setEditedPost(null);
-  //     //     setEditedPostData(null);
-  //     //   },
-  //   //   });
-  //   // },
-  //   [editedPostData, editPostMutation],
-  // );
   const handleDeletePost = useCallback(
     (postId) => {
       deletePostMutation.mutate(postId, {
@@ -176,8 +158,36 @@ function GroupPage({ currentUser, onProfileOpen }) {
     });
   }, [group?.id, isOwner, leaveGroupMutation]);
 
+  const handleDeleteGroup = useCallback(() => {
+    if (!group?.id) return;
+    deleteGroupMutation.mutate(group.id, {
+      onSuccess: () => toastNotify("success", "Group deleted successfully"),
+      onError: () => toastNotify("error", "Error deleting group"),
+    });
+  }, [group?.id, deleteGroupMutation]);
+  const handleRemoveMember = useCallback(
+    (memberId) => {
+      if (!group?.id || !memberId) return;
+      if (!group?.ownerId) return;
+      if (memberId === group?.ownerId) {
+        return toastNotify(
+          "error",
+          "Owners must reassign permissions before leaving.",
+        );
+      }
+      removeMember.mutate(
+        { groupId: group.id, userId: memberId },
+        {
+          onSuccess: () =>
+            toastNotify("success", "Member removed successfully"),
+          onError: () => toastNotify("error", "Error removing member"),
+        },
+      );
+    },
+    [group?.id, group?.ownerId, removeMember, toastNotify],
+  );
   // Loading Shield State
-  if (isGroupLoading || !currentUser) {
+  if (isGroupLoading) {
     return (
       <div className="flex h-[60vh] items-center justify-center bg-zinc-950">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-500 border-t-transparent"></div>
@@ -199,45 +209,71 @@ function GroupPage({ currentUser, onProfileOpen }) {
 
       {/* Modern Dashboard Header Banner */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-900 bg-zinc-900/30 backdrop-blur-md sticky top-0 z-10">
-        <div className="flex items-center gap-4 min-w-0">
-          <button
-            onClick={() => onProfileOpen?.({ type: "group", group, isAdmin })}
-            aria-label="Show group details"
-            className="relative shrink-0 active:scale-95 transition-transform group"
+        <button
+          onClick={() => navigate(-1)}
+          aria-label="Navigate to previous index directory"
+          className="md:hidden p-2 -ml-2 rounded-xl text-neutral-400 hover:text-white hover:bg-white/5 active:scale-95 transition-all shrink-0"
+        >
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
           >
-            <img
-              src={avatarUrl || "/placeholder-group.png"}
-              alt={`${groupName} profile`}
-              className="w-11 h-11 rounded-full shadow-md object-cover border border-zinc-800"
-              loading="lazy"
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M10 19l-7-7m0 0l7-7m-7 7h18"
             />
-            <div className="absolute inset-0 rounded-full bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs">
-              👀
-            </div>
-          </button>
+          </svg>
+        </button>
+        <div className="flex items-center gap-4 min-w-0">
+          {isGroupActive && (
+            <button
+              onClick={() =>
+                onProfileOpen?.({ type: "group", group, isAdmin: isOwner })
+              }
+              aria-label="Show group details"
+              className="relative shrink-0 active:scale-95 transition-transform group"
+            >
+              <img
+                src={avatarUrl || "/placeholder-group.png"}
+                alt={`${groupName} profile`}
+                className="w-11 h-11 rounded-full shadow-md object-cover border border-zinc-800"
+                loading="lazy"
+              />
+              <div className="absolute inset-0 rounded-full bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs">
+                👀
+              </div>
+            </button>
+          )}
           {/* show members */}
           {showMembers && (
             <MemberListModal
               isOpen={showMembers}
               onClose={() => setShowMembers(false)}
               members={membersList}
-              admin={isAdmin ? currentUser?.id : null}
+              admin={isOwner ? group?.ownerId : null}
               currentUser={currentUser?.id}
               onProfileOpen={onProfileOpen}
+              onRemoveMember={handleRemoveMember}
             />
           )}
 
           <div className="flex flex-col min-w-0">
             <h1 className="text-base font-bold tracking-tight text-zinc-100 truncate">
-              {groupName}
+              {isGroupActive ? groupName : "This  Group is Inactive!"}
             </h1>
-            <button
-              onClick={() => setShowMembers(true)}
-              className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-violet-400 font-medium transition-colors w-max mt-0.5"
-            >
-              <RiGroupLine className="text-sm" />
-              <span>{membersCountText}</span>
-            </button>
+            {isGroupActive && (
+              <button
+                onClick={() => setShowMembers(true)}
+                className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-violet-400 font-medium transition-colors w-max mt-0.5"
+              >
+                <RiGroupLine className="text-sm" />
+                <span>{membersCountText}</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -247,7 +283,7 @@ function GroupPage({ currentUser, onProfileOpen }) {
             onClick={handleLeaveGroup}
             className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900 hover:bg-rose-950/30 text-zinc-400 hover:text-rose-400 text-xs font-semibold rounded-xl border border-zinc-800 hover:border-rose-900/40 transition duration-200"
           >
-            <FiLogOut />
+            <FiLogOut aria-hidden="true" />
             <span>Leave</span>
           </button>
         )}
@@ -265,22 +301,28 @@ function GroupPage({ currentUser, onProfileOpen }) {
             ))}
           </div>
         ) : allPosts?.length > 0 ? (
-          <div className="flex flex-col gap-2 justify-between">
-            {allPosts.map((post) => (
-              <GroupPost
+          <ul className="flex flex-col gap-2 justify-between">
+            {allPosts.map((post, index) => (
+              <li
                 key={post.id}
-                groupMembers={membersList}
-                post={post}
-                currentUser={currentUser}
-                groupId={groupId}
-                isMember={isGroupMember}
-                isAdmin={currentUser?.id === post.userId}
-                onProfileOpen={onProfileOpen}
-                onDeletePost={handleDeletePost}
-                onEditPost={handleEditPost}
-              />
+                style={{ animationDelay: `${index * 100}ms` }}
+                className="animate-slideUpFade opacity-0 will-change-transform"
+              >
+                <GroupPost
+                  groupMembers={membersList}
+                  post={post}
+                  currentUser={currentUser}
+                  groupId={groupId}
+                  isMember={isOwner || isGroupMember}
+                  isAdmin={currentUser?.id === post.userId}
+                  isGroupActive={isGroupActive}
+                  onProfileOpen={onProfileOpen}
+                  onDeletePost={handleDeletePost}
+                  onEditPost={handleEditPost}
+                />
+              </li>
             ))}
-          </div>
+          </ul>
         ) : (
           <div className="flex flex-col items-center justify-center py-16 text-center border border-dashed border-zinc-900 rounded-2xl bg-zinc-900/10">
             <p className="text-sm text-zinc-500 font-medium">
@@ -295,7 +337,15 @@ function GroupPage({ currentUser, onProfileOpen }) {
 
       {/* Bottom Action Area (Sticky Input or Join Button CTA) */}
       <div className="p-4 border-t border-zinc-900 bg-zinc-950/80 backdrop-blur-xl">
-        {!isGroupMember ? (
+        {/* Case 1: The Group is Soft-Deleted / Inactive */}
+        {!isGroupActive ? (
+          <div className="w-full text-center py-3 bg-zinc-900/50 border border-zinc-800 text-zinc-500 text-xs font-medium rounded-xl">
+            <span>
+              This group has been deleted by an admin. You cannot post or edit.
+            </span>
+          </div>
+        ) : /* Case 2: The Group is Active, but user hasn't joined yet */
+        !isGroupMember && !isOwner ? (
           <button
             onClick={handleJoinGroup}
             className="w-full flex items-center justify-center gap-2 py-3 bg-zinc-100 hover:bg-white text-zinc-950 text-sm font-semibold rounded-xl shadow-lg shadow-black/20 active:scale-[0.99] transition duration-150"
@@ -303,7 +353,8 @@ function GroupPage({ currentUser, onProfileOpen }) {
             <FiUserPlus className="text-base" />
             <span>Join Group to Participate</span>
           </button>
-        ) : editedPost ? (
+        ) : /* Case 3: User is a member/owner AND editing a post */
+        editedPost ? (
           <div className="space-y-2 rounded-xl bg-violet-950/10 border border-violet-500/20 p-3 animate-[fadeIn_0.2s_ease-out]">
             <div className="flex items-center justify-between text-xs font-semibold text-violet-400 px-1">
               <span>Editing Active Post</span>
@@ -323,15 +374,10 @@ function GroupPage({ currentUser, onProfileOpen }) {
             />
           </div>
         ) : (
+          /* Case 4: User is a member/owner sending a normal message */
           <ChatInput onSubmit={handleNewPost} />
         )}
       </div>
-      {editedPost ? (
-        <p>
-          You are currently editing a post. Make your changes and submit to
-          update `
-        </p>
-      ) : null}
     </div>
   );
 }

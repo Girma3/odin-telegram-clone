@@ -1,39 +1,10 @@
-// import { useEffect, useState, useMemo, useCallback, use, useRef } from "react";
-// import { useLocation, useNavigate, useParams } from "react-router-dom";
-// import { ToastContainer, toast } from "react-toastify";
-// import UserComment from "./UserComment";
-// import CommentThread from "./CommentThread";
-// import ReplyInput from "../../chat/components/ReplyInput";
-
-// import { useGetPost } from "../hooks/usePosts";
-// import {
-//   useCreateComment,
-//   useDeleteComment,
-//   useGetComments,
-//   useUpdateComment,
-// } from "../hooks/useComments";
-// import { getMonthAndYear } from "../../../services/helperFns";
-// import useReplyNotification from "../../websocket/hooks/useReplyNotification";
-// import { usePrivateTyping } from "../../websocket/hooks/useTyping";
-// import { MdOnDeviceTraining } from "react-icons/md";
-
-//const mainPost = `max-w-[600px]  h-max bg-gray-700 rounded-sm p-2`;
-function getCommentById(comments, commentId) {
-  return comments.find((comment) => comment.id === commentId);
-}
-
-// const toastNotify = (type, title, message) => {
-//   toast({
-//     type,
-//     title,
-//     message,
-//     status: type,
-//     duration: 5000,
-//     isClosable: true,
-//   });
-// };
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import {
+  useLocation,
+  useNavigate,
+  useOutletContext,
+  useParams,
+} from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import CommentThread from "./CommentThread";
 import ReplyInput from "../../chat/components/ReplyInput";
@@ -49,7 +20,10 @@ import { getMonthAndYear } from "../../../services/helperFns";
 import useReplyNotification from "../../websocket/hooks/useReplyNotification";
 import { usePrivateTyping } from "../../websocket/hooks/useTyping";
 import { IoArrowBack } from "react-icons/io5";
-
+import { useAuthContext } from "../../auth/AuthContext";
+function getCommentById(comments, commentId) {
+  return comments.find((comment) => comment.id === commentId);
+}
 const toastNotify = (type, title, message) => {
   toast({
     type,
@@ -61,12 +35,14 @@ const toastNotify = (type, title, message) => {
   });
 };
 
-function Discussion({ currentUser, onProfileOpen }) {
+function Discussion() {
   const navigate = useNavigate();
   const location = useLocation();
   const { id: postId } = useParams();
+  const { currentUser } = useAuthContext();
+  const { onProfileOpen } = useOutletContext();
 
-  const { groupMembers, postData } = location.state || {};
+  const { groupMembers, postData, isGroupActive } = location.state || {};
 
   const [commentEditId, setCommentEditId] = useState(null);
   const [editCommentData, setEditCommentData] = useState(null);
@@ -111,8 +87,6 @@ function Discussion({ currentUser, onProfileOpen }) {
     }
   }, [commentEditId, comments, editCommentData?.id]);
 
-  const mode = editCommentData ? "edit" : "new";
-
   const handleCommendEdit = useCallback((commentId) => {
     setCommentEditId(commentId);
   }, []);
@@ -124,6 +98,7 @@ function Discussion({ currentUser, onProfileOpen }) {
 
   const handleCommentSubmit = useCallback(
     (data) => {
+      if (!isGroupActive) return;
       const filteredData = Object.fromEntries(
         Object.entries(data).filter(([_, value]) => value !== undefined),
       );
@@ -149,6 +124,7 @@ function Discussion({ currentUser, onProfileOpen }) {
 
   const handleCommentUpdate = useCallback(
     (data) => {
+      if (!isGroupActive) return;
       const filteredData = Object.fromEntries(
         Object.entries(data).filter(([_, value]) => value !== undefined),
       );
@@ -176,6 +152,7 @@ function Discussion({ currentUser, onProfileOpen }) {
 
   const handleCommentDelete = useCallback(
     (commentId, targetPostId) => {
+      if (!isGroupActive) return;
       if (!commentId || !targetPostId) return;
       deleteCommentMutation.mutate(
         { commentId, postId: targetPostId },
@@ -191,6 +168,7 @@ function Discussion({ currentUser, onProfileOpen }) {
   );
 
   const handleNestedComment = useCallback((id) => {
+    if (!isGroupActive) return;
     setParentCommentId(id);
   }, []);
 
@@ -219,7 +197,7 @@ function Discussion({ currentUser, onProfileOpen }) {
         </p>
         <button
           onClick={() => window.location.reload()}
-          className="px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-medium rounded-xl transition duration-200 text-sm shadow-lg shadow-indigo-500/20"
+          className="px-4 py-2 bg-linear-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-medium rounded-xl transition duration-200 text-sm shadow-lg shadow-indigo-500/20"
         >
           Try Again
         </button>
@@ -247,14 +225,14 @@ function Discussion({ currentUser, onProfileOpen }) {
         {/* Main Post Card */}
         <div className="group relative overflow-hidden rounded-2xl bg-zinc-900/40 border border-zinc-800/80 backdrop-blur-sm transition duration-300 hover:border-zinc-700/60 shadow-xl">
           {post.imgUrl && (
-            <div className="relative overflow-hidden w-full max-h-[340px]">
+            <div className="relative overflow-hidden w-full max-h-85">
               <img
                 src={post.imgUrl}
                 alt="Post attachment"
                 className="w-full h-full object-cover transition duration-500 group-hover:scale-[1.01]"
                 loading="lazy"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-transparent to-transparent opacity-60"></div>
+              <div className="absolute inset-0 bg-linear-to-t from-zinc-900 via-transparent to-transparent opacity-60"></div>
             </div>
           )}
 
@@ -324,28 +302,49 @@ function Discussion({ currentUser, onProfileOpen }) {
           )}
         </div>
       </div>
+      {parentCommentId && (
+        <>
+          <button
+            className="text-xs text-violet-400 hover:text-violet-300 transition-colors"
+            onClick={() => setParentCommentId(null)}
+          >
+            Cancel reply
+          </button>
+          <p className="text-sm text-zinc-400 italic">
+            replying to:{" "}
+            {comments.find((c) => c.id === parentCommentId)?.text.slice(0, 50) +
+              "..." || "Replying to comment..."}
+          </p>
+        </>
+      )}
 
-      <ReplyInput
-        editData={mode === "edit" ? editCommentData?.text : null}
-        onSubmit={mode === "edit" ? handleCommentUpdate : handleCommentSubmit}
-        onReset={() => {
-          setCommentEditId(null);
-          setEditCommentData(null);
-          setParentCommentId(null);
-        }}
-        emitTyping={emitTyping}
-      />
+      {isGroupActive ? (
+        editCommentData ? (
+          <ReplyInput
+            key={`edit-${editCommentData.id}`} // Force remount when switching edit targets
+            editData={editCommentData.text}
+            onSubmit={handleCommentUpdate}
+            onReset={() => {
+              setCommentEditId(null);
+              setEditCommentData(null);
+              setParentCommentId(null);
+            }}
+            emitTyping={emitTyping}
+          />
+        ) : (
+          <ReplyInput
+            key="new-comment"
+            onSubmit={handleCommentSubmit}
+            emitTyping={emitTyping}
+          />
+        )
+      ) : (
+        <p className="p-4 border-t border-zinc-900 bg-zinc-950/80 backdrop-blur-xl font-semibold">
+          This group is inactive.
+        </p>
+      )}
     </div>
   );
 }
 
-function getMode() {
-  if (parentCommentId) {
-    return "reply";
-  } else if (commentEditId) {
-    return "edit";
-  } else {
-    return "new";
-  }
-}
 export default Discussion;
