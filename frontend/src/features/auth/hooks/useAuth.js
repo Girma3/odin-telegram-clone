@@ -75,7 +75,7 @@ function useLogout(options = {}) {
       clearTokens();
       queryClient.setQueryData(authQueryKey, null);
       queryClient.invalidateQueries({ queryKey: authQueryKey });
-      // This obliterates all private groups, chats, and profiles so no data leaks.
+
       queryClient.clear();
       //  Run optional navigation/cleanup callbacks (e.g., navigate("/login"))
       options.onSuccess?.(data, variables, context);

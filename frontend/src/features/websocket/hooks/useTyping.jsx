@@ -19,7 +19,7 @@ function usePrivateTyping(roomId, myUserId) {
   // Emit typing event
   const emitTyping = () => {
     send("typing_in_private", { roomId, user: myUserId });
-    console.log(typingUsers);
+    //console.log(typingUsers);
   };
 
   return { typingUsers, emitTyping };

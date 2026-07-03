@@ -4,7 +4,7 @@ import ProfileGroup from "./ProfileGroup";
 
 function ProfileModal({ profileState, onClose, onCloseSideBar }) {
   if (!profileState.isOpen) return null;
-  console.log(profileState);
+  //console.log(profileState);
 
   return (
     <Modal isOpen={profileState.isOpen} onClose={onClose}>
