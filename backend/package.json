@@ -11,8 +11,9 @@
   },
   "scripts": {
     "test": "jest --watch tests/websocket/group-event.test.js ",
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "start": "node --no-deprecation src/server.js",
+    "dev": "nodemon --exec 'node --no-deprecation' src/server.js",
+    "seed": "node src/models/seed.js"
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",
@@ -30,6 +31,7 @@
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
+    "node-cron": "^4.5.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "ws": "^8.19.0",
