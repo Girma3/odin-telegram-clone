@@ -25,7 +25,7 @@ function UserComment({ user, comment, owner = false, onProfileOpen }) {
     setMenuOpen(false);
   };
   return (
-    <li
+    <div
       className="flex justify-start  items-end gap-3 p-1 w-max max-w-175 "
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={handleMouseLeave}
@@ -78,7 +78,7 @@ function UserComment({ user, comment, owner = false, onProfileOpen }) {
           {!owner && hovered && <Reaction />}
         </div>
       </div>
-    </li>
+    </div>
   );
 }
 
