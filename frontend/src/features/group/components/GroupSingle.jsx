@@ -71,8 +71,6 @@ function GroupSingle({ group = null }) {
             )}
           </div>
         </div>
-
-        <div className={notificationStyle}>33</div>
       </Link>
     </li>
   );

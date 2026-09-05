@@ -2,8 +2,8 @@ import { BrowserRouter, Router, Route, Routes } from "react-router-dom";
 import { useState } from "react";
 import { users, groups, notifications, privateChats } from "../data.js";
 
-import IntroPage from "./Intro-page";
-import ChatSingle from "../features/chat/components/ChatSingle";
+import IntroPage from "./IntroPage";
+import UserChat from "../features/chat/components/UserChat";
 import DesktopLayout from "../features/layouts/DeskTopLayout";
 import GroupChat from "../features/group/components/GroupChat";
 
@@ -65,7 +65,7 @@ export default function AppLayout() {
           <Route
             path="chat/:id"
             element={
-              <ChatSingle
+              <UserChat
                 users={users}
                 privateChats={privateChats}
                 currentUser={users[0]}

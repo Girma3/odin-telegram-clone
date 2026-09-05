@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
 
 const chatHolderStyle = `
@@ -24,15 +23,16 @@ const msgStyle = `
 
 const notificationStyle = `
   flex items-center justify-center
-  rounded-full w-3 h-3 bg-blue-600 text-white
-  text-[0.5rem] font-bold
+  min-w-5 h-5 px-1 rounded-full bg-blue-600
+  text-[0.65rem] leading-none text-white font-bold
+  shadow-md ring-2 ring-blue-400/20
 `;
 
 function UserChat({ user, privateChats, currentUser }) {
   const { profile, username } = user || {};
   const status = user?.status || "OFFLINE";
 
-  if (!currentUser) return null;
+  if (!currentUser || !user) return null;
 
   const chatsWithUser = privateChats.filter(
     (chat) =>
@@ -47,20 +47,22 @@ function UserChat({ user, privateChats, currentUser }) {
         ? lastMessage.text.slice(0, 20) + "..."
         : lastMessage.text
       : "send message";
-  //console.log(user.id, currentUser.id);
+  const notificationCount = chatsWithUser.filter(
+    (chat) => chat.receiverId === currentUser.id && !chat.isRead,
+  ).length;
 
   return (
     <li
       className={`${chatHolderStyle} animate-slideUp duration-200 ease-in-out`}
     >
       <Link
-        to={`/chat/${user.id}`}
+        to={`/chat/${user?.id}`}
         className="flex justify-between items-center w-full"
       >
         {/* Left side: avatar + text */}
         <div className="flex items-center gap-2">
           <img
-            src={profile.avatarUrl}
+            src={profile?.avatarUrl}
             alt="profile"
             className={`${imgStyle} ${status === "ONLINE" ? "ring-green-500" : "ring-gray-500"}`}
           />
@@ -70,7 +72,9 @@ function UserChat({ user, privateChats, currentUser }) {
           </div>
         </div>
 
-        <div className={notificationStyle}>3</div>
+        {notificationCount > 0 && (
+          <p className={notificationStyle}>{notificationCount}</p>
+        )}
       </Link>
     </li>
   );
