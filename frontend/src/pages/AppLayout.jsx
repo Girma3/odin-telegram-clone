@@ -1,100 +1,161 @@
-import { BrowserRouter, Router, Route, Routes } from "react-router-dom";
+// import { Route, Routes } from "react-router-dom";
+// import { useState } from "react";
+// import { groups, notifications, privateChats } from "../data.js";
+// import { useAuthContext } from "../features/auth/AuthContext.jsx";
+// import { UsersProvider } from "../features/private-chat/userContext.jsx";
+// import { OnlineUsersProvider } from "../features/websocket/OnlineUsersProvider.jsx";
+
+// import IntroPage from "./Intro-page";
+// import ChatSingle from "../features/private-chat/components/ChatSingle.jsx";
+// import DesktopLayout from "../features/layouts/DeskTopLayout";
+// import GroupPage from "../features/group/components/GroupPage";
+// import Discussion from "../features/group/components/Discussion";
+// import RequireAuth from "../features/auth/components/RequireAuth";
+// import MobileLayout from "../features/layouts/MobileLayout.jsx";
+
+// const Auth = () => <IntroPage />;
+
+// function AppLayout() {
+//   const [profileState, setProfileState] = useState({
+//     isOpen: false,
+//     type: null,
+//     user: null,
+//     profile: null,
+//     username: null,
+//     group: null,
+//     hasGroup: false,
+//     userId: null,
+//     isAdmin: false,
+//     isSelf: false,
+//   });
+
+//   /**
+//    * 📊 Seed Summary:
+// ================
+// 👥 Users: 15
+// 📝 User Profiles: 15
+// 🏢 Groups: 3
+// 📝 Group Profiles: 3
+// 👤 Group Memberships: 15
+// 📄 Posts: 15
+// 💬 Comments: 21
+// 💬 Nested Comments: 6
+// ❤️ Reactions: 18
+// ================
+//    */
+//   const { currentUser, isLoading, isSuccess } = useAuthContext();
+
+//   if (!currentUser && isSuccess) {
+//     return <Auth />;
+//   }
+//   const handleCloseModal = () => {
+//     setProfileState((prev) => ({ ...prev, isOpen: false }));
+//   };
+
+//   const handleProfileOpen = (payload) => {
+//     setProfileState({ isOpen: true, ...payload });
+//   };
+//   if (isLoading) return <div>loading...</div>;
+//   if (!isSuccess) return <div>error...</div>;
+
+//   return (
+//     <UsersProvider>
+//       <OnlineUsersProvider>
+//         <Routes>
+//           <Route path="/auth" element={<Auth />} />
+
+//           <Route element={<RequireAuth />}>
+//             <Route
+//               path="/"
+//               element={
+//                 <DesktopLayout
+//                   groups={groups}
+//                   currentUser={currentUser}
+//                   notifications={notifications}
+//                   privateChats={privateChats}
+//                   profileState={profileState}
+//                   onProfileOpen={handleProfileOpen}
+//                   onCloseModal={handleCloseModal}
+//                 />
+//               }
+//             >
+//               <Route
+//                 path="chat/:id"
+//                 element={
+//                   <ChatSingle
+//                     currentUser={currentUser}
+//                     onProfileOpen={handleProfileOpen}
+//                   />
+//                 }
+//               />
+
+//               <Route
+//                 path="group/:id"
+//                 element={
+//                   <GroupPage
+//                     currentUser={currentUser}
+//                     onProfileOpen={handleProfileOpen}
+//                   />
+//                 }
+//               />
+
+//               <Route
+//                 path="post/discussion/:id"
+//                 element={
+//                   <Discussion
+//                     currentUser={currentUser}
+//                     onProfileOpen={handleProfileOpen}
+//                   />
+//                 }
+//               />
+//             </Route>
+//           </Route>
+//         </Routes>{" "}
+//       </OnlineUsersProvider>
+//     </UsersProvider>
+//   );
+// }
+
+// export default AppLayout;
 import { useState } from "react";
-import { users, groups, notifications, privateChats } from "../data.js";
-
-import IntroPage from "./IntroPage";
-import UserChat from "../features/chat/components/UserChat";
+import { Outlet } from "react-router-dom";
+import { useAuthContext } from "../features/auth/AuthContext.jsx";
 import DesktopLayout from "../features/layouts/DeskTopLayout";
-import GroupChat from "../features/group/components/GroupChat";
-
-import Discussion from "../features/group/components/Discussion";
-
-const Auth = () => <IntroPage />;
+import { groups, notifications, privateChats } from "../data.js";
 
 export default function AppLayout() {
-  //global modal for profile for user or group
   const [profileState, setProfileState] = useState({
     isOpen: false,
-    type: null, // "user" | "group"
+    type: null,
     user: null,
+    profile: null,
+    username: null,
     group: null,
+    hasGroup: false,
+    userId: null,
     isAdmin: false,
     isSelf: false,
   });
 
-  const handleCloseModal = () => {
-    setProfileState((prev) => ({ ...prev, isOpen: false }));
-  };
-
-  const handleProfileOpen = ({
-    type,
-    user,
-    isAdmin = false,
-    isSelf = false,
-    group,
-  }) => {
-    setProfileState({
-      isOpen: true,
-      type,
-      user,
-      isAdmin,
-      isSelf,
-      user,
-      group,
-    });
-  };
+  const handleCloseModal = () =>
+    setProfileState((p) => ({ ...p, isOpen: false }));
+  const handleProfileOpen = (payload) =>
+    setProfileState({ isOpen: true, ...payload });
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route
-          path="/"
-          element={
-            <DesktopLayout
-              users={users}
-              groups={groups}
-              currentUser={users[0]} //change after auth
-              notifications={notifications}
-              privateChats={privateChats}
-              profileState={profileState}
-              onProfileOpen={handleProfileOpen}
-              onCloseModal={handleCloseModal}
-            />
-          }
-        >
-          <Route
-            path="chat/:id"
-            element={
-              <UserChat
-                users={users}
-                privateChats={privateChats}
-                currentUser={users[0]}
-              />
-            }
-          />{" "}
-          <Route
-            path="group/:id"
-            element={
-              <GroupChat
-                groups={groups}
-                users={users}
-                currentUser={users[0]} //change after auth
-                onProfileOpen={handleProfileOpen}
-              />
-            }
-          />
-          <Route
-            path="/post/discussion/:id"
-            element={
-              <Discussion
-                groups={groups}
-                users={users}
-                onProfileOpen={handleProfileOpen}
-              />
-            }
-          />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <DesktopLayout
+      groups={groups}
+      notifications={notifications}
+      privateChats={privateChats}
+      profileState={profileState}
+      onProfileOpen={handleProfileOpen}
+      onCloseModal={handleCloseModal}
+    >
+      {/* 
+        Pass down global UI window methods via React Router context 
+        This eliminates prop-drilling `onProfileOpen` down to children
+      */}
+      <Outlet context={{ onProfileOpen: handleProfileOpen }} />
+    </DesktopLayout>
   );
 }

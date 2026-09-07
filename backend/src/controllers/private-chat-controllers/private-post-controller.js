@@ -8,13 +8,17 @@ import {
   deletePrivateChat,
   getUnreadCount,
   isConversationParticipant,
+  unReadConversationCount,
 } from "../../models/user-query/private-chat-queries.js";
 import { PrivateChatSchema } from "../../middlewares/validation/schema-validation.js";
+import {
+  editPrivateChat,
+  getChatBySenderUserId,
+} from "../../models/private-chat-queries.js";
 
 // Send a private message
 async function sendPrivateMessage(req, res) {
   const result = PrivateChatSchema.safeParse(req.body);
-
   if (!result.success) {
     return res
       .status(400)
@@ -144,10 +148,20 @@ async function markMessageAsRead(req, res) {
 async function markConversationRead(req, res) {
   const { userId } = req.params;
   const currentUserId = req.user.id;
+  if (!userId || !currentUserId) {
+    return res
+      .status(400)
+      .json({ message: "User ID and current user is required" });
+  }
+  if (userId === currentUserId) {
+    return res
+      .status(400)
+      .json({ message: "Cannot mark own conversation as read" });
+  }
 
   try {
-    await markConversationAsRead(userId, currentUserId);
-    return res.json({ message: "Conversation marked as read" });
+    const chats = await markConversationAsRead(userId, currentUserId);
+    return res.json({ chats, message: "Conversation marked as read" });
   } catch (error) {
     console.error(error);
     return res
@@ -162,6 +176,16 @@ async function deleteChatHandler(req, res) {
   const userId = req.user.id;
 
   try {
+    const chat = await getPrivateChatById(chatId);
+    if (!chat) {
+      return res.status(404).json({ message: "Chat not found" });
+    }
+
+    if (chat.senderId !== userId && chat.receiverId !== userId) {
+      return res
+        .status(403)
+        .json({ message: "Not authorized to delete this message" });
+    }
     await deletePrivateChat(chatId, userId);
     return res.json({ message: "Message deleted successfully" });
   } catch (error) {
@@ -192,7 +216,59 @@ async function getUnreadMessages(req, res) {
       .json({ message: `Failed to get unread count: ${error.message}` });
   }
 }
+async function editPrivateMessage(req, res) {
+  const { chatId } = req.params;
+  if (!chatId) {
+    return res.status(400).json({ message: "Chat ID is required" });
+  }
+  const result = PrivateChatSchema.safeParse(req.body);
 
+  if (!result.success) {
+    return res
+      .status(400)
+      .json({ message: "Invalid message data", detail: result.error.message });
+  }
+  const userId = req.user.id;
+  try {
+    const isChatOwner = await getChatBySenderUserId(userId, chatId);
+    if (!isChatOwner) {
+      return res
+        .status(403)
+        .json({ message: "Not authorized to edit this message" });
+    }
+    const { text, imgUrl } = result.data;
+    if (!text && !imgUrl) {
+      return res
+        .status(400)
+        .json({ message: "Either text or image is required" });
+    }
+    const chat = await editPrivateChat(chatId, result.data);
+    return res.json(chat);
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: `Failed to edit message: ${error.message}` });
+  }
+}
+async function getUnreadConversationCount(req, res) {
+  const { userId } = req.params;
+  const currentUserId = req.user.id;
+  if (!userId || !currentUserId) {
+    return res
+      .status(400)
+      .json({ message: "User ID and current user is required" });
+  }
+
+  try {
+    const count = await unReadConversationCount(userId, currentUserId);
+    return res.json({ unreadChatCount: count });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      message: `Failed to get unread conversation count: ${error.message}`,
+    });
+  }
+}
 export {
   sendPrivateMessage,
   getChat,
@@ -202,4 +278,6 @@ export {
   markConversationRead,
   deleteChatHandler,
   getUnreadMessages,
+  editPrivateMessage,
+  getUnreadConversationCount,
 };

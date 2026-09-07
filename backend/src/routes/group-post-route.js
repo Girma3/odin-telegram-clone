@@ -23,6 +23,8 @@ import {
   addCommentToPost,
   deleteCommentHandler,
   getComments,
+  getCommentsWithTelegramStyle,
+  updateCommentHandler,
 } from "../controllers/group-controller/group-post-comment-controller.js";
 
 import { isUserAuthenticated } from "../controllers/auth-controller.js";
@@ -66,6 +68,11 @@ groupPostRouter.post(
   isUserAuthenticated,
   addCommentToPost,
 );
+groupPostRouter.put(
+  "/comments/:commentId",
+  isUserAuthenticated,
+  updateCommentHandler,
+);
 
 // Delete comment (authenticated)
 groupPostRouter.delete(
@@ -73,7 +80,10 @@ groupPostRouter.delete(
   isUserAuthenticated,
   deleteCommentHandler,
 );
+//update comment
 
+//get threaded comments  for a post
+groupPostRouter.get("/comments/:postId", getCommentsWithTelegramStyle);
 // ==================== REACTIONS ====================
 // Get reactions for a post - public
 groupPostRouter.get("/:postId/reactions", getReactions);

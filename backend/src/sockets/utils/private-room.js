@@ -10,6 +10,14 @@ function getPrivateRoom(roomId) {
   }
   return privateRoom.get(roomId);
 }
+function joinPrivateRoomHandler(ws, payload) {
+  const { roomId } = payload;
+  const room = getPrivateRoom(roomId);
+  if (!room) return;
+  if (!room.has(ws)) {
+    room.add(ws);
+  }
+}
 
 function broadCastToPrivateRoom(roomId, type, payload) {
   const room = getPrivateRoom(roomId);
@@ -21,4 +29,10 @@ function broadCastToPrivateRoom(roomId, type, payload) {
     }
   });
 }
-export { privateRoomId, getPrivateRoom, broadCastToPrivateRoom, privateRoom };
+export {
+  privateRoomId,
+  getPrivateRoom,
+  broadCastToPrivateRoom,
+  joinPrivateRoomHandler,
+  privateRoom,
+};

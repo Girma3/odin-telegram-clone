@@ -41,6 +41,7 @@ async function addChatComment(chatId, userId, text) {
             username: true,
             email: true,
             profile: true,
+            isDeleted: true,
           },
         },
         receiver: {
@@ -49,6 +50,7 @@ async function addChatComment(chatId, userId, text) {
             username: true,
             email: true,
             profile: true,
+            isDeleted: true,
           },
         },
       },
@@ -94,6 +96,7 @@ async function getChatComments(chatId) {
             username: true,
             email: true,
             profile: true,
+            isDeleted: true,
           },
         },
         receiver: {
@@ -102,6 +105,7 @@ async function getChatComments(chatId) {
             username: true,
             email: true,
             profile: true,
+            isDeleted: true,
           },
         },
       },

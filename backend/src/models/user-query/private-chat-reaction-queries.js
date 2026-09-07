@@ -59,6 +59,7 @@ async function addChatReaction(chatId, userId, emoji) {
               id: true,
               username: true,
               email: true,
+              isDeleted: true,
             },
           },
           chat: {
@@ -99,6 +100,7 @@ async function addChatReaction(chatId, userId, emoji) {
             id: true,
             username: true,
             email: true,
+            isDeleted: true,
           },
         },
         chat: {
@@ -152,6 +154,7 @@ async function getChatReactions(chatId) {
             id: true,
             username: true,
             email: true,
+            isDeleted: true,
           },
         },
       },

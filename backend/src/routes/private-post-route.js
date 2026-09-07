@@ -10,6 +10,8 @@ import {
   markConversationRead,
   deleteChatHandler,
   getUnreadMessages,
+  editPrivateMessage,
+  getUnreadConversationCount,
 } from "../controllers/private-chat-controllers/private-post-controller.js";
 
 // Reaction controllers
@@ -44,8 +46,10 @@ privatePostRouter.get("/", (req, res) => {
 // Get all conversations for current user
 privatePostRouter.get("/conversations", getConversationsHandler);
 
-// Get unread message count
+// Get all unread message count
 privatePostRouter.get("/unread", getUnreadMessages);
+//get unread conversation count bn users
+privatePostRouter.get("/user/:userId/unread/", getUnreadConversationCount);
 
 // Get conversation with a specific user
 privatePostRouter.get("/user/:userId", getConversationHandler);
@@ -61,6 +65,8 @@ privatePostRouter.post("/", sendPrivateMessage);
 
 // Mark single message as read
 privatePostRouter.put("/:chatId/read", markMessageAsRead);
+//edit message
+privatePostRouter.put("/:chatId/edit", editPrivateMessage);
 
 // Delete a private message
 privatePostRouter.delete("/:chatId", deleteChatHandler);

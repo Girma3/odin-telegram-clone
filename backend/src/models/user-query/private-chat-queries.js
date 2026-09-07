@@ -17,6 +17,7 @@ async function createPrivateChat(senderId, receiverId, data = {}) {
             username: true,
             email: true,
             profile: true,
+            isDeleted: true,
           },
         },
         receiver: {
@@ -25,6 +26,7 @@ async function createPrivateChat(senderId, receiverId, data = {}) {
             username: true,
             email: true,
             profile: true,
+            isDeleted: true,
           },
         },
       },
@@ -50,6 +52,7 @@ async function getPrivateChatById(chatId) {
             username: true,
             email: true,
             profile: true,
+            isDeleted: true,
           },
         },
         receiver: {
@@ -58,6 +61,7 @@ async function getPrivateChatById(chatId) {
             username: true,
             email: true,
             profile: true,
+            isDeleted: true,
           },
         },
         notifications: true,
@@ -87,6 +91,7 @@ async function getConversation(userId1, userId2) {
             username: true,
             email: true,
             profile: true,
+            isDeleted: true,
           },
         },
         receiver: {
@@ -95,6 +100,7 @@ async function getConversation(userId1, userId2) {
             username: true,
             email: true,
             profile: true,
+            isDeleted: true,
           },
         },
       },
@@ -124,6 +130,7 @@ async function getUserConversations(userId) {
             username: true,
             email: true,
             profile: true,
+            isDeleted: true,
           },
         },
         receiver: {
@@ -132,6 +139,7 @@ async function getUserConversations(userId) {
             username: true,
             email: true,
             profile: true,
+            isDeleted: true,
           },
         },
       },
@@ -263,6 +271,24 @@ async function isConversationParticipant(userId1, userId2, checkUserId) {
   return userId1 === checkUserId || userId2 === checkUserId;
 }
 
+async function unReadConversationCount(senderId, userId) {
+  try {
+    const count = await prismaGlobal.privateChats.count({
+      where: {
+        senderId,
+        receiverId: userId,
+        read: false,
+      },
+    });
+    return count;
+  } catch (error) {
+    console.error(error);
+    throw new Error(
+      `Failed to get unread conversation count: ${error.message}`,
+    );
+  }
+}
+
 export {
   createPrivateChat,
   getPrivateChatById,
@@ -273,4 +299,5 @@ export {
   deletePrivateChat,
   getUnreadCount,
   isConversationParticipant,
+  unReadConversationCount,
 };

@@ -17,6 +17,7 @@ async function createGroupPost(userId, groupId, data = {}) {
             username: true,
             email: true,
             profile: true,
+            isDeleted: true,
           },
         },
         group: {
@@ -48,6 +49,7 @@ async function getPostById(postId) {
             username: true,
             email: true,
             profile: true,
+            isDeleted: true,
           },
         },
         group: {
@@ -64,11 +66,12 @@ async function getPostById(postId) {
                 username: true,
                 email: true,
                 profile: true,
+                isDeleted: true,
               },
             },
           },
           orderBy: {
-            created: "desc",
+            created: "asc",
           },
         },
         reactions: {
@@ -101,9 +104,7 @@ async function getPostById(postId) {
 async function getPostsByGroupId(groupId) {
   try {
     const posts = await prismaGlobal.posts.findMany({
-      where: {
-        groupId,
-      },
+      where: { groupId },
       include: {
         author: {
           select: {
@@ -111,12 +112,39 @@ async function getPostsByGroupId(groupId) {
             username: true,
             email: true,
             profile: true,
+            isDeleted: true,
           },
         },
         group: {
           select: {
             id: true,
             name: true,
+          },
+        },
+        comments: {
+          include: {
+            author: {
+              select: {
+                id: true,
+                username: true,
+                email: true,
+                profile: true,
+                isDeleted: true,
+              },
+            },
+          },
+          orderBy: { created: "asc" },
+        },
+        reactions: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                profile: true,
+                isDeleted: true,
+              },
+            },
           },
         },
         _count: {
@@ -126,9 +154,7 @@ async function getPostsByGroupId(groupId) {
           },
         },
       },
-      orderBy: {
-        created: "desc",
-      },
+      orderBy: { created: "asc" },
     });
     return posts;
   } catch (error) {
@@ -151,6 +177,7 @@ async function getUserPosts(userId) {
             username: true,
             email: true,
             profile: true,
+            isDeleted: true,
           },
         },
         group: {
@@ -188,6 +215,7 @@ async function getAllPosts() {
             username: true,
             email: true,
             profile: true,
+            isDeleted: true,
           },
         },
         group: {
@@ -242,6 +270,7 @@ async function updatePost(postId, userId, updates) {
             id: true,
             username: true,
             email: true,
+            isDeleted: true,
           },
         },
         group: {
@@ -334,6 +363,7 @@ async function addReaction(postId, userId, emoji) {
             id: true,
             username: true,
             email: true,
+            isDeleted: true,
           },
         },
         post: {
@@ -386,6 +416,7 @@ async function getPostReactions(postId) {
             id: true,
             username: true,
             email: true,
+            isDeleted: true,
           },
         },
       },
@@ -419,148 +450,10 @@ async function getReactionById(postId, userId) {
 }
 
 // Add comment to post
-async function addComment(postId, userId, text, parentId = null) {
-  try {
-    const comment = await prismaGlobal.comments.create({
-      data: {
-        postId,
-        userId,
-        text,
-        parentId,
-      },
-      include: {
-        author: {
-          select: {
-            id: true,
-            username: true,
-            email: true,
-            profile: true,
-          },
-        },
-        post: {
-          select: {
-            id: true,
-            text: true,
-          },
-        },
-        parent: {
-          select: {
-            id: true,
-            text: true,
-          },
-        },
-      },
-    });
-    return comment;
-  } catch (error) {
-    console.error(error);
-    throw new Error(`Failed to add comment: ${error.message}`);
-  }
-}
 
 // Delete comment
-async function deleteComment(commentId, userId) {
-  try {
-    // First check if user is the author
-    const comment = await prismaGlobal.comments.findUnique({
-      where: { id: commentId },
-      select: { userId: true, postId: true },
-    });
-
-    if (!comment) {
-      throw new Error("Comment not found");
-    }
-
-    // Check if user is comment author OR post author OR group owner
-    const post = await prismaGlobal.posts.findUnique({
-      where: { id: comment.postId },
-      select: { userId: true, groupId: true },
-    });
-
-    const group = await prismaGlobal.groups.findUnique({
-      where: { id: post.groupId },
-      select: { ownerId: true },
-    });
-
-    if (
-      comment.userId !== userId &&
-      post.userId !== userId &&
-      group?.ownerId !== userId
-    ) {
-      throw new Error("Not authorized to delete this comment");
-    }
-
-    // Delete replies first
-    await prismaGlobal.comments.deleteMany({
-      where: { parentId: commentId },
-    });
-
-    // Delete notifications
-    await prismaGlobal.notifications.deleteMany({
-      where: { commentId },
-    });
-
-    const deletedComment = await prismaGlobal.comments.delete({
-      where: {
-        id: commentId,
-      },
-    });
-    return deletedComment;
-  } catch (error) {
-    console.error(error);
-    if (
-      error.message.includes("Not authorized") ||
-      error.message.includes("not found")
-    ) {
-      throw error;
-    }
-    throw new Error(`Failed to delete comment: ${error.message}`);
-  }
-}
 
 // Get comments by post
-async function getCommentsByPost(postId) {
-  try {
-    const comments = await prismaGlobal.comments.findMany({
-      where: {
-        postId,
-        parentId: null, // Only top-level comments
-      },
-      include: {
-        author: {
-          select: {
-            id: true,
-            username: true,
-            email: true,
-            profile: true,
-          },
-        },
-        replies: {
-          include: {
-            author: {
-              select: {
-                id: true,
-                username: true,
-                email: true,
-                profile: true,
-              },
-            },
-          },
-          orderBy: {
-            created: "asc",
-          },
-        },
-      },
-      orderBy: {
-        created: "desc",
-      },
-    });
-    return comments;
-  } catch (error) {
-    console.error(error);
-    throw new Error(`Failed to get comments: ${error.message}`);
-  }
-}
 
 // Check if user is post author
 async function isPostAuthor(postId, userId) {
@@ -588,8 +481,5 @@ export {
   removeReaction,
   getPostReactions,
   getReactionById,
-  addComment,
-  deleteComment,
-  getCommentsByPost,
   isPostAuthor,
 };

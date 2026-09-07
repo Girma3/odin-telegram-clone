@@ -1,83 +1,112 @@
 import { Link } from "react-router-dom";
+import { useGetProfileByUser } from "../../profile/hooks/useProfile";
+import {
+  useGetConversation,
+  useUnreadCount,
+} from "../../private-chat/hooks/useUserChat";
 
-const chatHolderStyle = `
-  text-xs text-amber-100
-  w-full min-w-[140px] rounded-md bg-white/5 border border-white/10 p-4 shadow-sm
-  transition-all duration-300
-  hover:shadow-[0_0_6px_rgba(59,130,246,0.6)]
-  hover:border-blue-500/50 cursor-pointer
-  hover:transform-scale-105
-`;
+import { useMemo } from "react";
+import useOnlineUsers from "../../websocket/hooks/useOnlineUsers";
 
-const imgStyle = `
-  rounded-full w-10 h-10 shadow-md object-cover ring-3  
-`;
+const STYLES = {
+  chatHolder: `
+    text-xs text-amber-100 cursor-pointer
+    sm:w-full rounded-md bg-white/5 border-2 border-white/10 p-4 shadow-sm
+    transition-all duration-300
+     hover:shadow-[0_0_6px_rgba(59,130,246,0.6)]
+    hover:border-blue-500/50 
+  
+  `,
+  avatar: `
+    rounded-full w-10 h-10 shadow-md object-cover ring-3
+  `,
+  name: `
+    sm:text-xs text-[0.5rem] font-semibold text-amber-100
+  `,
+  message: `
+    text-[0.5rem] text-amber-100 word-break
+  `,
+  notification: `
+    flex items-center justify-center
+    rounded-full w-4 h-4 bg-green-500 text-black
+    text-[0.6rem] font-bold
+  `,
+};
 
-const nameStyle = `
-  sm:text-xs text-[0.5rem] font-semibold text-amber-100
-`;
+const MAX_PREVIEW_LENGTH = 20;
+const PLACEHOLDER_TEXT = "send message";
 
-const msgStyle = `
-  text-[0.5rem] text-amber-100 word-break
-`;
+function UserChat({ user, currentUser }) {
+  if (!user || !currentUser) return null;
+  if (user.isDeleted) return null;
+  if (user.id === currentUser.id) return null; //user can't chat with self
+  const { id: currentUserId } = currentUser;
+  const { id, status, username } = user;
 
-const notificationStyle = `
-  flex items-center justify-center
-  min-w-5 h-5 px-1 rounded-full bg-blue-600
-  text-[0.65rem] leading-none text-white font-bold
-  shadow-md ring-2 ring-blue-400/20
-`;
+  const {
+    data: profile,
+    isError: isProfileError,
+    isLoading: isProfileLoading,
+  } = useGetProfileByUser(id);
+  const { data: privateChats, isLoading: isPrivateChatLoading } =
+    useGetConversation(id);
 
-function UserChat({ user, privateChats, currentUser }) {
-  const { profile, username } = user || {};
-  const status = user?.status || "OFFLINE";
+  //sender is user and receiver is current user
+  const unreadMessages = useUnreadCount(currentUserId, id, privateChats, {
+    enabled: !!privateChats,
+  });
+  const { onlineUsers } = useOnlineUsers();
+  const isOnline = onlineUsers.includes(id);
+  if (isPrivateChatLoading || isProfileLoading) return <div>Loading...</div>;
 
-  if (!currentUser || !user) return null;
-
-  const chatsWithUser = privateChats.filter(
-    (chat) =>
-      (chat.senderId === currentUser.id && chat.receiverId === user.id) ||
-      (chat.senderId === user.id && chat.receiverId === currentUser.id),
-  );
-  const lastMessage =
-    chatsWithUser.length > 0 ? chatsWithUser[chatsWithUser.length - 1] : null;
-  const previewText =
-    lastMessage && lastMessage.text && lastMessage.text.trim() !== ""
-      ? lastMessage.text.length > 20
-        ? lastMessage.text.slice(0, 20) + "..."
-        : lastMessage.text
-      : "send message";
-  const notificationCount = chatsWithUser.filter(
-    (chat) => chat.receiverId === currentUser.id && !chat.isRead,
-  ).length;
+  const lastMessage = privateChats
+    ? privateChats[privateChats?.length - 1]
+    : null;
+  //
+  const previewText = getPreviewText(lastMessage);
 
   return (
     <li
-      className={`${chatHolderStyle} animate-slideUp duration-200 ease-in-out`}
+      className={`${STYLES.chatHolder} animate-slideUp duration-200 ease-in-out`}
     >
       <Link
-        to={`/chat/${user?.id}`}
+        to={`/chat/${id}`}
         className="flex justify-between items-center w-full"
+        state={{ user: user, profile: profile, privateChats: privateChats }}
       >
-        {/* Left side: avatar + text */}
         <div className="flex items-center gap-2">
           <img
             src={profile?.avatarUrl}
-            alt="profile"
-            className={`${imgStyle} ${status === "ONLINE" ? "ring-green-500" : "ring-gray-500"}`}
+            alt={`${username}'s profile`}
+            loading="lazy"
+            className={`${
+              STYLES.avatar
+            } ${isOnline ? "ring-green-500" : "ring-gray-500"}`}
           />
           <div>
-            <p className={nameStyle}>{username}</p>
-            <p className={msgStyle}>{previewText}</p>
+            <p className={STYLES.name}>{username}</p>
+            <p className={STYLES.message}>{previewText}</p>
           </div>
         </div>
-
-        {notificationCount > 0 && (
-          <p className={notificationStyle}>{notificationCount}</p>
+        {unreadMessages > 0 && (
+          <span
+            className={STYLES.notification}
+            aria-label={`${unreadMessages} unread messages`}
+          >
+            {unreadMessages}
+          </span>
         )}
       </Link>
     </li>
   );
+}
+
+function getPreviewText(lastMessage) {
+  if (!lastMessage?.text?.trim()) return PLACEHOLDER_TEXT;
+  const text = lastMessage.text.trim();
+  return text.length > MAX_PREVIEW_LENGTH
+    ? `${text.slice(0, MAX_PREVIEW_LENGTH)}...`
+    : text;
 }
 
 export default UserChat;

@@ -8,12 +8,13 @@ import {
   deletePost,
 } from "../../models/group-query/group-post-queries.js";
 import {
+  getGroupById,
   isGroupMember,
   isGroupOwner,
 } from "../../models/group-query/group-queries.js";
 import { PostSchema } from "../../middlewares/validation/schema-validation.js";
 
-// Create a new post for a group
+// Create a new post for a groups
 async function createNewPostForGroup(req, res) {
   const result = PostSchema.safeParse(req.body);
 
@@ -25,9 +26,10 @@ async function createNewPostForGroup(req, res) {
   let userId = req.user.id;
 
   if (!userId || !result.data.groupId) {
-    return res.status(400).json({ message: "Unauthorized to post" });
+    return res
+      .status(400)
+      .json({ message: "Unauthorized to post without userId and groupId" });
   }
-
   const { text, imgUrl, groupId } = result.data;
   if (!text && !imgUrl) {
     return res
@@ -36,6 +38,15 @@ async function createNewPostForGroup(req, res) {
   }
 
   try {
+    const group = await getGroupById(groupId);
+    if (!group) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+    if (group?.isDeleted) {
+      return res
+        .status(404)
+        .json({ message: "Group has been deleted and it is not active." });
+    }
     const isMember = await isGroupMember(groupId, userId);
     const isOwner = await isGroupOwner(groupId, userId);
 
@@ -76,6 +87,10 @@ async function getPost(req, res) {
 // Get posts by group
 async function getGroupPosts(req, res) {
   const { groupId } = req.params;
+
+  if (!groupId) {
+    return res.status(400).json({ message: "Group ID is required" });
+  }
 
   try {
     const posts = await getPostsByGroupId(groupId);

@@ -1,4 +1,3 @@
-import e from "express";
 import { eventMap } from "./event-map.js";
 const middlewares = [];
 

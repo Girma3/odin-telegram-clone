@@ -36,6 +36,8 @@ function Modal({ isOpen, onClose, children }) {
     <dialog
       ref={dialogRef}
       onClose={onClose}
+      role="dialog"
+      aria-modal="true"
       onClick={(e) => {
         if (e.target === dialogRef.current) onClose();
       }}

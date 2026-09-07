@@ -23,6 +23,7 @@ async function createPrivateMessageNotification({
             id: true,
             username: true,
             email: true,
+            isDeleted: true,
           },
         },
         sender: {
@@ -30,6 +31,7 @@ async function createPrivateMessageNotification({
             id: true,
             username: true,
             email: true,
+            isDeleted: true,
           },
         },
         chat: {
@@ -71,6 +73,7 @@ async function createPrivateReactionNotification({
             id: true,
             username: true,
             email: true,
+            isDeleted: true,
           },
         },
         sender: {
@@ -78,6 +81,7 @@ async function createPrivateReactionNotification({
             id: true,
             username: true,
             email: true,
+            isDeleted: true,
           },
         },
         chat: {
@@ -124,6 +128,7 @@ async function createPrivateCommentNotification({
             id: true,
             username: true,
             email: true,
+            isDeleted: true,
           },
         },
         sender: {
@@ -131,6 +136,7 @@ async function createPrivateCommentNotification({
             id: true,
             username: true,
             email: true,
+            isDeleted: true,
           },
         },
         chat: {
@@ -173,6 +179,7 @@ async function createGroupPostNotification({ senderId, receiverId, postId }) {
             id: true,
             username: true,
             email: true,
+            isDeleted: true,
           },
         },
         sender: {
@@ -180,6 +187,7 @@ async function createGroupPostNotification({ senderId, receiverId, postId }) {
             id: true,
             username: true,
             email: true,
+            isDeleted: true,
           },
         },
         post: {
@@ -221,6 +229,7 @@ async function createGroupCommentNotification({
             id: true,
             username: true,
             email: true,
+            isDeleted: true,
           },
         },
         sender: {
@@ -228,6 +237,7 @@ async function createGroupCommentNotification({
             id: true,
             username: true,
             email: true,
+            isDeleted: true,
           },
         },
         post: {
@@ -275,6 +285,7 @@ async function createGroupReactionNotification({
             id: true,
             username: true,
             email: true,
+            isDeleted: true,
           },
         },
         sender: {
@@ -282,6 +293,7 @@ async function createGroupReactionNotification({
             id: true,
             username: true,
             email: true,
+            isDeleted: true,
           },
         },
         post: {
@@ -319,6 +331,7 @@ async function markNotificationAsRead(notificationId) {
             id: true,
             username: true,
             email: true,
+            isDeleted: true,
           },
         },
         sender: {
@@ -326,6 +339,7 @@ async function markNotificationAsRead(notificationId) {
             id: true,
             username: true,
             email: true,
+            isDeleted: true,
           },
         },
       },
@@ -350,6 +364,7 @@ async function getUserNotifications(userId) {
             id: true,
             username: true,
             email: true,
+            isDeleted: true,
           },
         },
         sender: {
@@ -357,6 +372,7 @@ async function getUserNotifications(userId) {
             id: true,
             username: true,
             email: true,
+            isDeleted: true,
           },
         },
         post: {

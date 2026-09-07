@@ -22,6 +22,7 @@ async function createGroup(ownerId, name, profileData = {}) {
             id: true,
             username: true,
             email: true,
+            isDeleted: true,
           },
         },
       },
@@ -47,8 +48,10 @@ async function getGroupById(groupId) {
             id: true,
             username: true,
             email: true,
+            isDeleted: true,
           },
         },
+        posts: true,
         members: {
           include: {
             user: {
@@ -56,6 +59,7 @@ async function getGroupById(groupId) {
                 id: true,
                 username: true,
                 email: true,
+                isDeleted: true,
               },
             },
           },
@@ -89,6 +93,7 @@ async function getGroupByName(name) {
             id: true,
             username: true,
             email: true,
+            isDeleted: true,
           },
         },
         members: {
@@ -98,6 +103,7 @@ async function getGroupByName(name) {
                 id: true,
                 username: true,
                 email: true,
+                isDeleted: true,
               },
             },
           },
@@ -119,8 +125,12 @@ async function getGroupByName(name) {
 
 // Get all groups
 async function getAllGroups() {
+  //get active group only
   try {
     const groups = await prismaGlobal.groups.findMany({
+      where: {
+        isDeleted: false,
+      },
       include: {
         profile: true,
         owner: {
@@ -128,6 +138,7 @@ async function getAllGroups() {
             id: true,
             username: true,
             email: true,
+            isDeleted: true,
           },
         },
         _count: {
@@ -163,6 +174,7 @@ async function updateGroup(groupId, updates) {
             id: true,
             username: true,
             email: true,
+            isDeleted: true,
           },
         },
       },
@@ -205,7 +217,23 @@ async function deleteGroup(groupId) {
     throw new Error(`Failed to delete group: ${error.message}`);
   }
 }
-
+async function softDeleteGroup(groupId) {
+  try {
+    const group = await prismaGlobal.groups.update({
+      where: {
+        id: groupId,
+      },
+      data: {
+        isDeleted: true,
+        deletedAt: new Date(),
+      },
+    });
+    return group;
+  } catch (error) {
+    console.error(error);
+    throw new Error(`Failed to soft delete group: ${error.message}`);
+  }
+}
 // Add member to group
 async function addMember(groupId, userId) {
   try {
@@ -220,6 +248,7 @@ async function addMember(groupId, userId) {
             id: true,
             username: true,
             email: true,
+            isDeleted: true,
           },
         },
         group: {
@@ -274,6 +303,7 @@ async function getGroupMembers(groupId) {
             email: true,
             status: true,
             profile: true,
+            isDeleted: true,
           },
         },
       },
@@ -302,6 +332,7 @@ async function getGroupPosts(groupId) {
             username: true,
             email: true,
             profile: true,
+            isDeleted: true,
           },
         },
         group: {
@@ -391,6 +422,30 @@ async function getUserGroupsCount(userId) {
     throw new Error(`Failed to get user groups count: ${error.message}`);
   }
 }
+async function getGroupByUserId(userId) {
+  try {
+    const groups = await prismaGlobal.groups.findMany({
+      where: {
+        ownerId: userId,
+      },
+      include: {
+        profile: true,
+        owner: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            isDeleted: true,
+          },
+        },
+      },
+    });
+    return groups;
+  } catch (error) {
+    console.error(error);
+    throw new Error(`Failed to get groups by user ID: ${error.message}`);
+  }
+}
 
 export {
   createGroup,
@@ -398,6 +453,7 @@ export {
   getGroupByName,
   getAllGroups,
   updateGroup,
+  softDeleteGroup,
   deleteGroup,
   addMember,
   removeMember,
@@ -407,4 +463,5 @@ export {
   isGroupOwner,
   getGroupMembersCount,
   getUserGroupsCount,
+  getGroupByUserId,
 };

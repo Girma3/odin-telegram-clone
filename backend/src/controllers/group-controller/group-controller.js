@@ -13,7 +13,10 @@ import {
   isGroupMember,
   isGroupOwner,
   getUserGroupsCount,
+  getGroupByUserId,
+  softDeleteGroup,
 } from "../../models/group-query/group-queries.js";
+import { updateProfile } from "../../models/user-query/profile-query.js";
 
 // Create a new group
 async function createNewGroup(req, res) {
@@ -55,6 +58,7 @@ async function getGroup(req, res) {
 
   try {
     const group = await getGroupById(groupId);
+
     if (!group) {
       return res.status(404).json({ message: "Group not found" });
     }
@@ -66,7 +70,22 @@ async function getGroup(req, res) {
       .json({ message: `Failed to get group: ${error.message}` });
   }
 }
-
+//get by user id
+async function getGroupByUserIdController(req, res) {
+  const { userId } = req.params;
+  try {
+    const group = await getGroupByUserId(userId);
+    if (!group) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+    return res.json(group);
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .json({ message: `Failed to get group: ${error.message}` });
+  }
+}
 // Get group by name
 async function getGroupByGroupName(req, res) {
   const { name } = req.params;
@@ -101,11 +120,15 @@ async function getAllGroupsHandler(req, res) {
 // Update group
 async function updateGroupHandler(req, res) {
   const { groupId } = req.params;
-  const { name, bio, avatarUrl, location, website } = req.body;
+  const userId = req.user.id;
 
+  if (!groupId || !userId) {
+    return res.status(400).json({ message: "group and user id required!" });
+  }
+  const { name, bio, avatarUrl, location, website } = req.body;
   try {
     // Check if user is the owner
-    const isOwner = await isGroupOwner(groupId, req.user.id);
+    const isOwner = await isGroupOwner(groupId, userId);
     if (!isOwner) {
       return res
         .status(403)
@@ -127,9 +150,10 @@ async function updateGroupHandler(req, res) {
       const group = await getGroupById(groupId);
       if (group?.profile) {
         // Update existing profile
-        const { updateProfile } =
-          await import("../../models/user-query/profile-query.js");
-        await updateProfile(group.profile.id, profileUpdates);
+        const updatedProfile = await updateProfile(
+          group.profile.id,
+          profileUpdates,
+        );
       }
     }
 
@@ -147,6 +171,33 @@ async function updateGroupHandler(req, res) {
 }
 
 // Delete group
+async function softDeleteGroupHandler(req, res) {
+  const { groupId } = req.params;
+
+  try {
+    const group = await getGroupById(groupId);
+    if (!group) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+    if (group.isDeleted) {
+      return res.status(400).json({ message: "Group already deleted" });
+    }
+    // Check if user is the owner
+    const isOwner = await isGroupOwner(groupId, req.user.id);
+    if (!isOwner) {
+      return res
+        .status(403)
+        .json({ message: "Only group owner can delete the group" });
+    }
+    const removeGroup = await softDeleteGroup(groupId);
+    return res.json({ message: "Group deleted successfully", removeGroup });
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .json({ message: `Failed to delete group: ${error.message}` });
+  }
+}
 async function deleteGroupHandler(req, res) {
   const { groupId } = req.params;
 
@@ -261,25 +312,29 @@ async function getPosts(req, res) {
 // Join group (current user joins)
 async function joinGroup(req, res) {
   const { groupId } = req.params;
+  const userId = req.user.id;
+  if (!groupId || !userId) {
+    return res.status(400).json({ message: "group and user id required!" });
+  }
 
   try {
     // Check if already a member
-    const isMember = await isGroupMember(groupId, req.user.id);
+    const isMember = await isGroupMember(groupId, userId);
     if (isMember) {
       return res
         .status(400)
         .json({ message: "Already a member of this group" });
     }
 
-    // Check if user is the owner
-    const isOwner = await isGroupOwner(groupId, req.user.id);
+    // check if user is the owner
+    const isOwner = await isGroupOwner(groupId, userId);
     if (isOwner) {
       return res
         .status(400)
         .json({ message: "You are the owner of this group" });
     }
 
-    const member = await addMember(groupId, req.user.id);
+    const member = await addMember(groupId, userId);
     return res.status(201).json(member);
   } catch (error) {
     console.error(error);
@@ -292,18 +347,25 @@ async function joinGroup(req, res) {
 // Leave group (current user leaves)
 async function leaveGroup(req, res) {
   const { groupId } = req.params;
-
+  const userId = req.user.id;
+  if (!groupId || !userId) {
+    return res.status(400).json({ message: "group and user id required!" });
+  }
   try {
-    // Check if user is the owner
-    const isOwner = await isGroupOwner(groupId, req.user.id);
+    // check if user is the owner
+    const isOwner = await isGroupOwner(groupId, userId);
     if (isOwner) {
       return res.status(400).json({
         message:
           "Group owner cannot leave. Transfer ownership or delete the group instead.",
       });
     }
-
-    await removeMember(groupId, req.user.id);
+    const removedMember = await removeMember(groupId, userId);
+    if (!removedMember) {
+      return res
+        .status(400)
+        .json({ message: "failed to remove member from group." });
+    }
     return res.json({ message: "Successfully left the group" });
   } catch (error) {
     console.error(error);
@@ -312,13 +374,42 @@ async function leaveGroup(req, res) {
       .json({ message: `Failed to leave group: ${error.message}` });
   }
 }
+async function isUserAdmin(req, res) {
+  const { groupId } = req.params;
+  const { userId } = req.query;
+  if (!groupId || !userId) {
+    return res.status(400).json({ message: "user and group id required!" });
+  }
+  try {
+    const admin = await isGroupOwner(groupId, userId);
+    return res.status(200).json({ admin: admin });
+    return admin;
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to check admin" });
+  }
+}
+async function isUserGroupMember(req, res) {
+  const { groupId } = req.params;
+  const { userId } = req.query;
+  if (!groupId || !userId) {
+    return res.status(400).json({ message: "user and group id required!" });
+  }
+  try {
+    const member = await isGroupMember(groupId, userId);
+    return res.status(200).json({ member: member });
+  } catch (error) {
+    return res.status(500).json({ message: "failed to check user is member!" });
+  }
+}
 
 export {
   createNewGroup,
   getGroup,
+  getGroupByUserIdController,
   getGroupByGroupName,
   getAllGroupsHandler,
   updateGroupHandler,
+  softDeleteGroupHandler,
   deleteGroupHandler,
   addMemberToGroup,
   removeMemberFromGroup,
@@ -326,4 +417,6 @@ export {
   getPosts,
   joinGroup,
   leaveGroup,
+  isUserAdmin,
+  isUserGroupMember,
 };

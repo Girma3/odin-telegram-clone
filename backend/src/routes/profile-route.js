@@ -4,6 +4,7 @@ import {
   updateProfileController,
   deleteProfileController,
   getProfileController,
+  getProfileByUserIdController,
 } from "../controllers/profile-controller.js";
 import { isUserAuthenticated } from "../controllers/auth-controller.js";
 
@@ -17,6 +18,13 @@ profileRouter.post("/", isUserAuthenticated, createProfileController);
 
 // Get a profile by userId
 profileRouter.get("/:profileId", isUserAuthenticated, getProfileController);
+
+// Get a profile by userId
+profileRouter.get(
+  "/user/:userId",
+  isUserAuthenticated,
+  getProfileByUserIdController,
+);
 
 // Update a profile by userId
 profileRouter.put("/:profileId", isUserAuthenticated, updateProfileController);
