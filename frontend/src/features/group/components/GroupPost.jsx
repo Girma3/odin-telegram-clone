@@ -1,14 +1,15 @@
 import { useState, useMemo } from "react";
 import { FaReply } from "react-icons/fa";
+import { MdNavigateNext } from "react-icons/md";
 import { CiMenuKebab } from "react-icons/ci";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { chatHolderStyle } from "./PostByUser";
 import Reaction from "../../chat/Reaction";
 import KebabMenu from "../../chat/components/KebabMenu";
 
 // Constants
 const ICON_STYLES = {
-  reply: `w-4 h-4 fill-pink-400 transition-all duration-300 ease-in-out rounded-full hover:fill-green-600 cursor-pointer`,
+  postLink: `w-6 h-6 fill-pink-400 transition-all duration-300 ease-in-out rounded-full hover:fill-green-600 cursor-pointer`,
   kebab: `w-6 h-6 fill-pink-300 hover:fill-green-400`,
 };
 
@@ -36,7 +37,11 @@ function formatCommentCount(count) {
 
 // Component for displaying commenter profile images
 function CommenterImage({ imgUrl, index, onProfileOpen, user }) {
-  const handleClick = () => {
+  const handleClick = (e) => {
+    //stop parent event propagation
+    if (e) {
+      e.stopPropagation();
+    }
     if (onProfileOpen && user) {
       onProfileOpen({ type: "user", user });
     }
@@ -46,7 +51,7 @@ function CommenterImage({ imgUrl, index, onProfileOpen, user }) {
     <button
       aria-label={`View ${user?.name || "user"}'s profile`}
       className="w-12"
-      onClick={handleClick}
+      onClick={(e) => handleClick(e)}
       title="show-Profile"
       type="button"
     >
@@ -71,6 +76,7 @@ function GroupPost({
   const { imgUrl, text, id, created, author } = post;
   const [hovered, setHovered] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const navigate = useNavigate();
 
   // Memoize derived data to avoid recalculation on every render
   const comments = useMemo(() => post.comments || [], [post.comments]);
@@ -107,12 +113,19 @@ function GroupPost({
       document.body.removeChild(link);
     }
   };
+  const handlePostClick = () => {
+    //stop propagation if the click is on the image or menu
+    if (menuOpen) return;
 
+    if (!commentCount > 0) return;
+    navigate(`/post/discussion/${id}?groupId=${groupId}`);
+  };
   return (
     <li
       className="flex justify-start items-end gap-3 p-1 w-max max-w-175"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={handleMouseLeave}
+      onClick={handlePostClick}
     >
       <div className={chatHolderStyle}>
         {/* Post Image */}
@@ -129,26 +142,27 @@ function GroupPost({
             />
           </button>
         )}
-
         {/* Post Text */}
         {text && <p className="text-sm">{text}</p>}
-
         {/* Post Actions and Metadata */}
         <div className="flex justify-between items-center relative p-3">
           {/* Commenter's and Comment Count */}
-          <div className="flex items-center w-max justify-baseline mx-4 h-3">
-            {reactions.length > 0 &&
-              reactions.map((reaction) => (
-                <button
-                  key={reaction.id}
-                  className="text-sm text-gray-600 mr-1"
-                  aria-label={`Reacted with ${reaction.emoji}`}
-                  title={`${currentUser.id === reaction.userId ? "You Reacted with " + reaction.emoji : ""}`}
-                  type="button"
-                >
-                  {reaction.emoji}
-                </button>
-              ))}
+          <div className="flex flex-wrap items-center w-max justify-baseline  mx-4 h-3">
+            <div className="flex flex-wrap items-center  px-2">
+              {" "}
+              {reactions.length > 0 &&
+                reactions.map((reaction) => (
+                  <button
+                    key={reaction.id}
+                    className="text-sm text-gray-600 p-1"
+                    aria-label={`Reacted with ${reaction.emoji}`}
+                    title={`${currentUser.id === reaction.userId ? "You Reacted with " + reaction.emoji : ""}`}
+                    type="button"
+                  >
+                    {reaction.emoji}
+                  </button>
+                ))}
+            </div>
             {comments.length > 0 && (
               <>
                 {commenterUsers.map((commenter, index) => (
@@ -160,7 +174,7 @@ function GroupPost({
                     onProfileOpen={onProfileOpen}
                   />
                 ))}
-                <span className="text-sm text-gray-600 ml-2">
+                <span className="text-sm text-gray-400 ml-2">
                   {commentCount}
                 </span>
               </>
@@ -183,9 +197,7 @@ function GroupPost({
 
             {/* Reply/Comment Link */}
             <Link to={`/post/discussion/${id}?groupId=${groupId}`}>
-              <button aria-label="Reply to post" type="button">
-                <FaReply className={ICON_STYLES.reply} />
-              </button>
+              <MdNavigateNext className={ICON_STYLES.postLink} />
             </Link>
           </div>
 
@@ -196,14 +208,13 @@ function GroupPost({
             </div>
           )}
         </div>
-
         {/* Post Metadata (Author and Timestamp) */}
         {created && (
-          <div className="flex justify-end items-center gap-2 text-sm text-gray-500">
+          <p className="flex justify-end items-center gap-2 text-sm text-gray-500">
             {author && <span className="font-medium">{author}</span>}
             <time dateTime={created}>{created}</time>
-          </div>
-        )}
+          </p>
+        )}{" "}
       </div>
     </li>
   );

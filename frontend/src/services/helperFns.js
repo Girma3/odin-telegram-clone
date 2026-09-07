@@ -1,4 +1,9 @@
-import { format, parseISO, differenceInDays } from "date-fns";
+import {
+  format,
+  parseISO,
+  differenceInDays,
+  formatDistanceToNow,
+} from "date-fns";
 //2026-04-06T10:38:29.522Z
 //format date
 function formatDate(date) {
@@ -13,5 +18,24 @@ function dateDifferenceFromNow(date) {
 function getMonthAndYear(date) {
   return format(parseISO(date), "MMM yyyy");
 }
+function formatCommentTime(dateString) {
+  const date = new Date(dateString);
+  const now = new Date();
 
-export { formatDate, dateDifferenceFromNow, getTheTime, getMonthAndYear };
+  // Check if the comment is older than 7 days
+  if (differenceInDays(now, date) > 7) {
+    // Returns something clean like "Mar 2, 2026"
+    return format(date, "MMM d, yyyy");
+  }
+
+  // Returns relative time like "5 minutes ago" or "2 days ago"
+  return formatDistanceToNow(date, { addSuffix: true });
+}
+
+export {
+  formatDate,
+  dateDifferenceFromNow,
+  getTheTime,
+  getMonthAndYear,
+  formatCommentTime,
+};

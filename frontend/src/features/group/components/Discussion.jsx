@@ -2,6 +2,11 @@ import { useParams, useSearchParams } from "react-router-dom";
 import PostByUser from "./PostByUser";
 import ChatWithComment from "./PostByUser";
 import UserComment from "./UserComment";
+import {
+  formatCommentTime,
+  formatDate,
+  getTheTime,
+} from "../../../services/helperFns";
 const mainPost = `max-w-[600px]  h-max bg-gray-700 rounded-sm p-2`;
 function getUserByCommentId(users, comment) {
   const user = users.find((user) => user.id === comment.userId);
@@ -11,6 +16,7 @@ function Discussion({ users, groups, onProfileOpen }) {
   const postId = useParams().id;
 
   const [searchParams] = useSearchParams();
+
   let groupId = searchParams.get("groupId");
   groupId = parseInt(groupId) ? parseInt(groupId) : groupId;
   const group = groups.find((group) => group.id === groupId);
@@ -24,6 +30,7 @@ function Discussion({ users, groups, onProfileOpen }) {
     <div className="flex flex-col ">
       <div className="flex flex-col gap-2 items-center">
         <div className={mainPost}>
+          <p>{format}</p>
           {imgUrl && (
             <img
               src={`${imgUrl}`}
@@ -33,9 +40,9 @@ function Discussion({ users, groups, onProfileOpen }) {
             />
           )}
           {text && <p className="py-2">{text}</p>}
-          <div className="flex justify-end items-center">
-            <span>{created}</span>
-          </div>
+          <p className="flex  justify-end items-center">
+            <span>{formatCommentTime(created)}</span>
+          </p>
         </div>
       </div>
       {comments?.length > 0 && (

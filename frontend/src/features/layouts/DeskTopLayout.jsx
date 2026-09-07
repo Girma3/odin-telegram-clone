@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 import SideBarOverlay from "./SideBarOverlay";
 import { searchHolder, searchInput } from "./MobileLayout";
 import { IoSearchSharp } from "react-icons/io5";
@@ -36,7 +36,6 @@ function DesktopLayout({
   users,
   groups,
   currentUser,
-
   privateChats,
   notifications,
   profileState,
@@ -47,6 +46,10 @@ function DesktopLayout({
   const [dragging, setDragging] = useState(false);
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const navigate = useNavigate();
+  const onBack = () => {
+    navigate(-1);
+  };
 
   const hasGroup = groups
     .map((g) => g.ownerId === currentUser.id)
@@ -207,6 +210,14 @@ function DesktopLayout({
         {/* Main content */}
         <main className={main}>
           <div className="p-4 text-white  min-h-[150%]">
+            <button
+              className="font-semibold bg-gray-800 text-white px-2 py-2 rounded-md hover:bg-gray-700 hover:scale-105 transition-transform duration-200
+               focus:outline-none focus:ring-2  focus:ring-blue-500"
+              onClick={onBack}
+            >
+              {" "}
+              ← Back{" "}
+            </button>
             <h2 className="text-lg font-semibold mb-4">Main Content</h2>
 
             {/* ... */}

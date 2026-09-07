@@ -11,12 +11,13 @@ const imgStyle = `w-6 h-6 rounded-full shadow-md ring-1 ring-pink-400  object-co
  ring-green-300 relative bottom-0`;
 const liStyle = `flex justify-start items-end gap-3 p-2 relative`;
 
-function UserComment({ user, comment, owner = false, onProfileOpen }) {
+function UserComment({ user, comment, onProfileOpen }) {
   const { text, created, id } = comment;
   const [hovered, setHovered] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const { profile } = user;
-  const { avatarUrl } = profile;
+  const { avatarUrl } = profile || {};
+  const owner = comment.userId === user.id;
   const handlePost = ({ onProfileOpen }) => {
     setMenuOpen((prev) => !prev);
   };
@@ -54,15 +55,19 @@ function UserComment({ user, comment, owner = false, onProfileOpen }) {
             loading="lazy"
           />
         )} */}
-        {text && <p>{text}</p>}
+        {text && <p className="p-2 wrap-break-word">{text}</p>}
 
         <div className="flex justify-end items-center relative p-1">
           <div className="flex items-center w-max justify-baseline mx-4 h-3 ">
             {owner && hovered && (
               <div>
                 {" "}
-                <button aria-label="kebab menu" onClick={handlePost}>
-                  <CiMenuKebab className="w-6 h-6  fill-pink-300 hover:fill-green-400" />
+                <button aria-label="menu" onClick={handlePost}>
+                  <CiMenuKebab
+                    className={`w-6 h-6 fill-pink-300 hover:fill-green-400 transition-transform duration-200 ${
+                      menuOpen ? "rotate-90" : ""
+                    }`}
+                  />
                 </button>
               </div>
             )}
