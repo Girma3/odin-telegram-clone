@@ -60,7 +60,16 @@ const users = [18, 19, 20];
 const sideBar = `fixed top-0 left-0 h-screen w-screen bg-gray-600 z-50 
                   transform transition-transform duration-300 ease-in-out `;
 
-function MobileLayout() {
+function MobileLayout({
+  users,
+  groups,
+  currentUser,
+  notifications,
+  privateChats,
+  profileState,
+  onProfileOpen,
+  onCloseModal,
+}) {
   const [menuOpen, setMenuOpen] = useState(false);
   return (
     <div className="min-h-screen bg-blue text-white w-screen ">

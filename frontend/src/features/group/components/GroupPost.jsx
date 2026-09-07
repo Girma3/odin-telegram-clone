@@ -153,6 +153,9 @@ function GroupPost({
     return Object.values(countsMap);
   }, [reactions]);
 
+    if (!commentCount > 0) return;
+    navigate(`/post/discussion/${id}?groupId=${groupId}`);
+  };
   return (
     <div className="group/post max-w-xl group relative flex flex-col gap-3 bg-zinc-900 border border-zinc-800 rounded-2xl p-4 shadow-md ">
       {/* BODY SECTION: Post Text / Render Images */}

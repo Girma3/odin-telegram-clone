@@ -163,6 +163,7 @@ function UserComment({
         </div>
       </div>
     </div>
+    </div>
   );
 }
 
